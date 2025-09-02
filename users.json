@@ -96,5 +96,25 @@
     "city": "Lucknow",
     "latitude": 26.8632064,
     "longitude": 81.0123264
+  },
+  {
+    "userId": "SM-09-2025-LUC-94a31fa",
+    "firstName": "suryakant",
+    "lastName": "mishra",
+    "email": "mishra@gmail.com",
+    "phone": "8960457880",
+    "city": "Lucknow",
+    "latitude": 26.8500992,
+    "longitude": 80.9435136
+  },
+  {
+    "userId": "DS-09-2025-LUC-ebabec3",
+    "firstName": "dfdsfsgs",
+    "lastName": "ssg",
+    "email": "sfgs@gmail.com",
+    "phone": "8299142475",
+    "city": "Lucknow",
+    "latitude": 26.8500992,
+    "longitude": 80.9435136
   }
 ]
