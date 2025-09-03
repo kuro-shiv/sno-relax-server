@@ -6,19 +6,30 @@ const cors = require("cors");
 
 const app = express();
 
-// ✅ Allow both GitHub Pages + Local Dev
+// ✅ Allowed frontend origins
+const allowedOrigins = [
+  "http://localhost:3000",          // Local React dev
+  "https://kuro-shiv.github.io",   // GitHub Pages frontend
+  "https://sno-relax.vercel.app"   // Vercel frontend
+];
+
 app.use(
   cors({
-    origin: [
-      "https://kuro-shiv.github.io",
-      "http://localhost:3000"
-    ],
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
   })
 );
+
 app.use(express.json());
 
 const USERS_FILE = path.join(__dirname, "users.json");
 
+// Helpers
 function readUsers() {
   if (!fs.existsSync(USERS_FILE)) return [];
   return JSON.parse(fs.readFileSync(USERS_FILE, "utf-8"));
@@ -26,6 +37,11 @@ function readUsers() {
 function writeUsers(users) {
   fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
 }
+
+// ✅ Root route (for testing)
+app.get("/", (req, res) => {
+  res.send("✅ SnoRelax Backend is running. Use /api/... endpoints.");
+});
 
 // Register user
 app.post("/api/create-user", (req, res) => {
