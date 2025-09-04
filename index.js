@@ -5,13 +5,10 @@ const path = require("path");
 const cors = require("cors");
 
 const app = express();
+require("dotenv").config(); // or import 'dotenv/config'; if using ES modules
 
 // ✅ Allowed frontend origins
-const allowedOrigins = [
-  "http://localhost:3000",          // Local React dev
-  "https://kuro-shiv.github.io",   // GitHub Pages frontend
-  "https://sno-relax.vercel.app"   // Vercel frontend
-];
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || "").split(",");
 
 app.use(
   cors({
