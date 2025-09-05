@@ -3,9 +3,11 @@ const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 const cors = require("cors");
+const moodRoutes = require("./routes/moodRoutes"); // ✅ Import mood routes
+const communityRoutes = require("./routes/communityRoutes");
 
 const app = express();
-require("dotenv").config(); // or import 'dotenv/config'; if using ES modules
+require("dotenv").config();
 
 // ✅ Allowed frontend origins
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || "").split(",");
@@ -107,6 +109,11 @@ app.post("/api/chat", (req, res) => {
 
   res.json({ sender: "bot", text: reply });
 });
+// Community routes
+app.use("/api/community", communityRoutes);
+
+// ✅ Mount MoodTracker routes
+app.use("/api/moods", moodRoutes);
 
 // ✅ Dynamic port
 const port = process.env.PORT || 5000;
