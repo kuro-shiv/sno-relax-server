@@ -18,8 +18,10 @@ function writeMoods(moods) {
 }
 
 // ✅ Add mood entry
-router.post("/", (req, res) => {
-  const { userId, mood } = req.body;
+router.post("/:userId", (req, res) => {
+  const { mood } = req.body;
+  const { userId } = req.params;
+
   if (!userId || mood === undefined) {
     return res.status(400).json({ error: "userId & mood required" });
   }
@@ -36,6 +38,7 @@ router.post("/", (req, res) => {
 
   res.json({ ok: true, entry: newEntry });
 });
+
 
 // ✅ Get moods for a user
 router.get("/:userId", (req, res) => {
