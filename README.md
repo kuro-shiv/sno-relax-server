@@ -1,71 +1,161 @@
-# Getting Started with Create React App
+# SnoRelax Backend
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+This is the backend for **SnoRelax**, a mental wellness and community platform.  
+It is built with Node.js and Express, and serves as the API for the SnoRelax frontend.
 
-## Available Scripts
+---
 
-In the project directory, you can run:
+## Table of Contents
 
-### `npm start`
+- [Project Overview](#project-overview)
+- [Features](#features)
+- [API Documentation](#api-documentation)
+- [Setup Instructions](#setup-instructions)
+- [Usage](#usage)
+- [Deployment](#deployment)
+- [Project Structure](#project-structure)
+- [Authors](#authors)
+- [Connected App Links](#connected-app-links)
+- [License](#license)
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+---
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Project Overview
 
-### `npm test`
+SnoRelax is a web application designed to support mental wellness through mood tracking, community engagement, and chatbot support. The backend provides RESTful APIs for user management, community features, and mood analytics.
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+---
 
-### `npm run build`
+## Features
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+- **User Registration & Login:**  
+  Users can register and log in with their details. User data is stored in `users.json`.
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+- **Admin Management:**  
+  Only admin users (listed in `admins.json`) can create and manage communities and groups.
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+- **Community Management:**  
+  Admins can create and manage communities. Community data is stored in `communities.json`.
 
-### `npm run eject`
+- **Mood Tracking:**  
+  Users can log their daily mood. Mood data is stored and can be retrieved for analytics.
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+- **Chatbot Support:**  
+  Users can interact with a simple chatbot for mental wellness support.
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+- **RESTful API:**  
+  All features are accessible via RESTful endpoints.
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+---
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+## API Documentation
 
-## Learn More
+### User Endpoints
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+- `POST /api/create-user`  
+  Register a new user.  
+  **Body:** `{ firstName, lastName, email, phone, city, latitude, longitude }`  
+  **Returns:** `{ userId }`
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+- `POST /api/login`  
+  Login with userId.  
+  **Body:** `{ userId }`  
+  **Returns:** `{ ok, user }`
 
-### Code Splitting
+### Community Endpoints
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+- `POST /api/community/create`  
+  Create a community (admin only).  
+  **Body:** `{ name, description, createdBy }`  
+  **Returns:** `{ message, community }`
 
-### Analyzing the Bundle Size
+### Mood Endpoints
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+- `GET /api/moods?userId=...`  
+  Get moods for a user.
 
-### Making a Progressive Web App
+- `POST /api/moods`  
+  Add a mood entry.  
+  **Body:** `{ userId, mood }`
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+### Chatbot Endpoint
 
-### Advanced Configuration
+- `POST /api/chat`  
+  Chatbot interaction.  
+  **Body:** `{ message }`  
+  **Returns:** `{ text }`
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+---
 
-### Deployment
+## Setup Instructions
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+1. **Clone the repository and install dependencies:**
+   ```bash
+   npm install
+   ```
 
-### `npm run build` fails to minify
+2. **Environment Variables:**  
+   Create a `.env` file in the root with:
+   ```
+   PORT=5000
+   ALLOWED_ORIGINS=https://sno-relax-client.vercel.app,http://localhost:3000
+   ```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
-# sno-relax-server
+3. **Run the server locally:**
+   ```bash
+   npm start
+   ```
+
+---
+
+## Usage
+
+- Use tools like [Postman](https://www.postman.com/) to test API endpoints.
+- Connect the frontend app to this backend for full functionality.
+- Admin users are defined in `admins.json`.
+
+---
+
+## Deployment
+
+The backend is hosted on Render:  
+**[https://sno-relax-server-hostside.onrender.com/](https://sno-relax-server-hostside.onrender.com/)**
+
+To deploy:
+- Push your code to a Git repository.
+- Connect the repo to [Render](https://render.com/).
+- Set environment variables as described above.
+
+---
+
+## Project Structure
+
+- `index.js` — Main server file
+- `users.json` — User data
+- `admins.json` — Admin user data
+- `communities.json` — Community data
+- `routes/` — Express route modules
+- `middleware/` — Custom middleware (e.g., admin check)
+
+---
+
+## Authors
+
+- Shivam Kumar Dubey (Admin)
+- Suryakant Mishra (Admin)
+
+---
+
+## Connected App Links
+
+- **Frontend:** [https://sno-relax-client.vercel.app/](https://sno-relax-client.vercel.app/)
+- **Backend:** [https://sno-relax-server-hostside.onrender.com/](https://sno-relax-server-hostside.onrender.com/)
+
+---
+
+## License
+
+This project is for educational purposes as part of a final year project.  
+[Specify your license here, e.g., MIT, if desired.]
+
+---
