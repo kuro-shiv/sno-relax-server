@@ -6,7 +6,6 @@ const crypto = require("crypto");
 const USERS_FILE = path.join(__dirname, "../users.json");
 const LOCAL_CREDENTIALS_PATH = path.join(__dirname, "../google-credentials.json");
 
-// Helpers
 function readUsers() {
   if (!fs.existsSync(USERS_FILE)) return [];
   return JSON.parse(fs.readFileSync(USERS_FILE, "utf-8"));
@@ -17,8 +16,7 @@ function writeUsers(users) {
 
 function loadServiceAccountCredentials() {
   if (process.env.GOOGLE_SERVICE_ACCOUNT) {
-    const base64 = process.env.GOOGLE_SERVICE_ACCOUNT;
-    const json = Buffer.from(base64, "base64").toString("utf-8");
+    const json = Buffer.from(process.env.GOOGLE_SERVICE_ACCOUNT, "base64").toString("utf-8");
     return JSON.parse(json);
   }
 
@@ -33,6 +31,7 @@ function loadServiceAccountCredentials() {
 
 async function findUserInGoogleSheet(email, phone, extraData = {}) {
   const SHEET_ID = process.env.GOOGLE_SHEET_ID;
+  const SHEET_RANGE = process.env.GOOGLE_SHEET_RANGE || "Users!A:D";
   if (!SHEET_ID) return null;
 
   const creds = loadServiceAccountCredentials();
@@ -42,11 +41,9 @@ async function findUserInGoogleSheet(email, phone, extraData = {}) {
   });
 
   const sheets = google.sheets({ version: "v4", auth });
-  const range = process.env.GOOGLE_SHEET_RANGE || "Users!A:D";
-
   const result = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,
-    range,
+    range: SHEET_RANGE,
   });
 
   const rows = result.data.values || [];
@@ -81,14 +78,12 @@ async function findUserInGoogleSheet(email, phone, extraData = {}) {
     (matchingRow[3] || "").replace(/\s+/g, "").replace(/[^\d+]/g, ""),
   ];
 
-  // Check local users.json
   const users = readUsers();
   let user = users.find(
     (u) => (u.email && u.email === sheetEmail) || (u.phone && u.phone === sheetPhone)
   );
   if (user) return user;
 
-  // First-time user → create entry
   const now = new Date();
   const month = String(now.getMonth() + 1).padStart(2, "0");
   const year = now.getFullYear();
