@@ -34,10 +34,4 @@ router.post('/create', isAdmin, (req, res) => {
   res.json({ message: 'Community created', community: newCommunity });
 });
 
-// Only admin can manage group
-router.post('/manage-group', isAdmin, (req, res) => {
-  // ...group management logic...
-  res.json({ message: 'Group managed' });
-});
-
 module.exports = router;
