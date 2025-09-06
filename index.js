@@ -2,8 +2,6 @@ const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 
-require("dotenv").config();
-
 // ✅ Import routes
 const authRoutes = require("./routes/authRoutes");
 const chatbotRoutes = require("./routes/chatbotRoutes");
@@ -12,14 +10,14 @@ const moodRoutes = require("./routes/moodRoutes");
 
 const app = express();
 
-// ✅ Allowed frontend origins from .env
+// ✅ Allowed frontend origins
 const allowedOrigins = [
   "https://sno-relax-client.vercel.app",
   "http://localhost:3000",
   "https://sno-relax-client-mt4osahbd-kuro-shivs-projects.vercel.app",
 ];
 
-// CORS middleware
+// ✅ CORS middleware
 app.use(
   cors({
     origin: function (origin, callback) {
@@ -34,7 +32,10 @@ app.use(
   })
 );
 
-// Body parser
+// ✅ Handle preflight requests
+app.options("*", cors());
+
+// ✅ Body parser
 app.use(express.json());
 
 // ✅ Root check
