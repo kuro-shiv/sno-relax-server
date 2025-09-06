@@ -11,9 +11,11 @@ const moodRoutes = require("./routes/moodRoutes");
 const app = express();
 
 // ✅ Allowed frontend origins from .env
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(",")
-  : ["http://localhost:3000"];
+const allowedOrigins = [
+  "https://sno-relax-client.vercel.app",
+  "http://localhost:3000",
+  "https://sno-relax-client-mt4osahbd-kuro-shivs-projects.vercel.app",
+];
 
 // CORS middleware
 app.use(
