@@ -1,3 +1,7 @@
 .vercel
 .env
 google-credentials.json
+# Ignore Google Cloud credentials
+google-credentials.json
+sno-relax-*.json
+*.env
