@@ -1,4 +1,3 @@
-// routes/communityRoutes.js
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
@@ -10,11 +9,47 @@ const COMMUNITY_FILE = path.join(__dirname, "../community.json");
 
 // Helpers
 function readCommunity() {
-  if (!fs.existsSync(COMMUNITY_FILE)) return { groups: [], messages: [] };
+  if (!fs.existsSync(COMMUNITY_FILE)) {
+    return { groups: [], messages: [] };
+  }
   return JSON.parse(fs.readFileSync(COMMUNITY_FILE, "utf-8"));
 }
+
 function writeCommunity(data) {
   fs.writeFileSync(COMMUNITY_FILE, JSON.stringify(data, null, 2));
+}
+
+// Ensure default groups exist
+function ensureDefaultGroups() {
+  const db = readCommunity();
+
+  if (!db.groups || db.groups.length === 0) {
+    db.groups = [
+      {
+        id: crypto.randomUUID(),
+        name: "Motivation",
+        description: "Daily motivational talks 💪",
+        adminId: "HOST",
+        members: ["HOST"],
+      },
+      {
+        id: crypto.randomUUID(),
+        name: "Mindfulness",
+        description: "Relax, meditate and share peace 🧘",
+        adminId: "HOST",
+        members: ["HOST"],
+      },
+      {
+        id: crypto.randomUUID(),
+        name: "Support",
+        description: "A safe place to talk and be heard 💙",
+        adminId: "HOST",
+        members: ["HOST"],
+      },
+    ];
+    db.messages = [];
+    writeCommunity(db);
+  }
 }
 
 // ✅ Create a new group
@@ -41,6 +76,7 @@ router.post("/create", (req, res) => {
 
 // ✅ Get all groups
 router.get("/groups", (req, res) => {
+  ensureDefaultGroups();
   const db = readCommunity();
   res.json({ ok: true, groups: db.groups });
 });

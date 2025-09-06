@@ -1,106 +1,62 @@
 const express = require("express");
-const crypto = require("crypto");
-const fs = require("fs");
-const path = require("path");
 const cors = require("cors");
-const moodRoutes = require("./routes/moodRoutes"); // ✅ Import mood routes
-const communityRoutes = require("./routes/communityRoutes");
-
-const app = express();
 require("dotenv").config();
 
-// ✅ Allowed frontend origins
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || "").split(",");
+// ✅ Import routes
+const authRoutes = require("./routes/authRoutes");
+const chatbotRoutes = require("./routes/chatbotRoutes");
+const communityRoutes = require("./routes/communityRoutes");
+const moodRoutes = require("./routes/moodRoutes");
 
+const app = express();
+
+// ✅ Allowed frontend origins from .env
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(",")
+  : ["http://localhost:3000"];
+
+// CORS middleware
 app.use(
   cors({
     origin: function (origin, callback) {
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        callback(new Error("Not allowed by CORS"));
+        console.warn("❌ Blocked by CORS:", origin);
+        callback(new Error("Not allowed by CORS: " + origin));
       }
     },
-  })
-);
-
-app.use(express.json());
-
-const USERS_FILE = path.join(__dirname, "users.json");
-
-// Helpers
-function readUsers() {
-  if (!fs.existsSync(USERS_FILE)) return [];
-  return JSON.parse(fs.readFileSync(USERS_FILE, "utf-8"));
-}
-function writeUsers(users) {
-  fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
-}
-
-// ✅ Root route (for testing)
-app.get("/", (req, res) => {
-  res.send("✅ SnoRelax Backend is running. Use /api/... endpoints.");
-});
-
-// Register user
-app.post("/api/create-user", (req, res) => {
-  const { firstName, lastName, email, phone, city, latitude, longitude } =
-    req.body;
-  if (!firstName || !lastName || !email || !phone) {
-    return res.status(400).json({ error: "Missing fields" });
-  }
-  // Generate userId (simple example)
-  const userId = `SD-${Date.now()}`;
-  res.json({ userId });
-});
-
-// Login
-app.post("/api/login", (req, res) => {
-  const { userId } = req.body;
-  if (!userId) return res.status(400).json({ error: "User ID required" });
-
-  const users = readUsers();
-  const user = users.find((u) => u.userId === userId);
-  if (!user) return res.status(404).json({ error: "User not found" });
-
-  res.json({ ok: true, user });
-});
-
-// Chatbot
-app.post("/api/chat", (req, res) => {
-  const { message } = req.body;
-  if (!message) return res.status(400).json({ error: "Message required" });
-
-  let reply = "I'm here for you 💙. Tell me more.";
-  if (message.toLowerCase().includes("sad"))
-    reply =
-      "I'm sorry you're feeling sad 😔. Remember, it's okay to feel this way.";
-  else if (message.toLowerCase().includes("happy"))
-    reply = "That's wonderful! 🎉 Keep enjoying the good vibes!";
-  else if (message.toLowerCase().includes("stress"))
-    reply = "Try closing your eyes and taking a deep breath 🌿.";
-  else if (message.toLowerCase().includes("angry"))
-    reply = "It helps to pause and count to 10. You're not alone 💚.";
-
-  res.json({ sender: "bot", text: reply });
-});
-// Community routes
-app.use("/api/community", communityRoutes);
-
-// ✅ Mount MoodTracker routes
-app.use("/api/moods", moodRoutes);
-
-// Enable CORS for specific origins
-app.use(
-  cors({
-    origin: [
-      "https://sno-relax-client.vercel.app",
-      "http://localhost:3000"
-    ],
     credentials: true,
   })
 );
 
-// ✅ Dynamic port
+// Body parser
+app.use(express.json());
+
+// ✅ Root check
+app.get("/", (req, res) => {
+  res.send("✅ SnoRelax Backend is running. Use /api/... endpoints.");
+});
+
+// ✅ Mount routes
+app.use("/api/auth", authRoutes);
+app.use("/api/chat", chatbotRoutes);
+app.use("/api/community", communityRoutes);
+app.use("/api/moods", moodRoutes);
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ error: "Endpoint not found" });
+});
+
+// Error handler
+app.use((err, req, res, next) => {
+  console.error("🔥 Server Error:", err.stack);
+  res.status(500).json({ error: err.message || "Internal Server Error" });
+});
+
+// ✅ Start server
 const port = process.env.PORT || 5000;
-app.listen(port, () => console.log(`🚀 Server running on port ${port}`));
+app.listen(port, () =>
+  console.log(`🚀 SnoRelax server running on port ${port}`)
+);
