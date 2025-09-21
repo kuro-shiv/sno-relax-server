@@ -1,10 +1,12 @@
+// index.js
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
+const path = require("path");
+const { spawn } = require("child_process");
 
 // ✅ Import routes
 const authRoutes = require("./routes/authRoutes");
-const chatbotRoutes = require("./routes/chatbotRoutes");
 const communityRoutes = require("./routes/communityRoutes");
 const moodRoutes = require("./routes/moodRoutes");
 
@@ -45,9 +47,32 @@ app.get("/", (req, res) => {
 
 // ✅ Mount routes
 app.use("/api/auth", authRoutes);
-app.use("/api/chat", chatbotRoutes);
 app.use("/api/community", communityRoutes);
 app.use("/api/moods", moodRoutes);
+
+// ✅ Chatbot route (Python integration)
+app.use("/api/chat", (req, res) => {
+  const { message } = req.body;
+  if (!message) return res.status(400).json({ error: "Message required" });
+
+  const pythonScript = path.join(__dirname, "./models/chat_model.py");
+  const python = spawn("python", [pythonScript, message]);
+
+  let result = "";
+
+  python.stdout.on("data", (data) => {
+    result += data.toString();
+  });
+
+  python.stderr.on("data", (err) => {
+    console.error("Python error:", err.toString());
+  });
+
+  python.on("close", () => {
+    if (!result) result = "⚠️ No response from Python script.";
+    res.json({ sender: "bot", text: result.trim() });
+  });
+});
 
 // 404 handler
 app.use((req, res) => {

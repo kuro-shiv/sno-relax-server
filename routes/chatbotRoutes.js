@@ -1,25 +1,37 @@
 // routes/chatbotRoutes.js
 const express = require("express");
 const router = express.Router();
+const { spawn } = require("child_process");
+const path = require("path");
 
-// ✅ Chatbot endpoint
 router.post("/", (req, res) => {
   const { message } = req.body;
   if (!message) return res.status(400).json({ error: "Message required" });
 
-  let reply = "I'm here for you 💙. Tell me more.";
+  // Ensure path is correct relative to this file
+  const pythonScript = path.join(__dirname, "../models/chat_model.py");
 
-  const msg = message.toLowerCase();
-  if (msg.includes("sad"))
-    reply = "I'm sorry you're feeling sad 😔. Remember, it's okay to feel this way.";
-  else if (msg.includes("happy"))
-    reply = "That's wonderful! 🎉 Keep enjoying the good vibes!";
-  else if (msg.includes("stress"))
-    reply = "Try closing your eyes and taking a deep breath 🌿.";
-  else if (msg.includes("angry"))
-    reply = "It helps to pause and count to 10. You're not alone 💚.";
+  // Spawn Python process
+  const python = spawn("python", [pythonScript, message]);
 
-  res.json({ sender: "bot", text: reply });
+  let result = "";
+
+  python.stdout.on("data", (data) => {
+    result += data.toString();
+  });
+
+  python.stderr.on("data", (err) => {
+    console.error("Python error:", err.toString());
+  });
+
+  python.on("close", (code) => {
+    if (code !== 0) {
+      console.error(`Python process exited with code ${code}`);
+      return res.status(500).json({ sender: "bot", text: "⚠️ Server error generating reply." });
+    }
+
+    res.json({ sender: "bot", text: result.trim() || "Sorry, I couldn't generate a reply." });
+  });
 });
 
 module.exports = router;
