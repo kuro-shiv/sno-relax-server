@@ -1,4 +1,3 @@
-// index.js
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
@@ -34,6 +33,10 @@ app.use(
   })
 );
 
+// ✅ MongoDB
+const connectDB = require("./db");
+connectDB();
+
 // ✅ Handle preflight requests
 app.options("*", cors());
 
@@ -45,13 +48,13 @@ app.get("/", (req, res) => {
   res.send("✅ SnoRelax Backend is running. Use /api/... endpoints.");
 });
 
-// ✅ Mount routes
+// ✅ Mount routes (fixed)
 app.use("/api/auth", authRoutes);
 app.use("/api/community", communityRoutes);
 app.use("/api/moods", moodRoutes);
 
-// ✅ Chatbot route (Python integration)
-app.use("/api/chat", (req, res) => {
+// ✅ Chatbot POST route
+app.post("/api/chat", (req, res) => {
   const { message } = req.body;
   if (!message) return res.status(400).json({ error: "Message required" });
 
