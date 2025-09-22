@@ -4,21 +4,19 @@ require("dotenv").config();
 const path = require("path");
 const { spawn } = require("child_process");
 
-// ✅ Import routes
+// Routes
 const authRoutes = require("./routes/authRoutes");
 const communityRoutes = require("./routes/communityRoutes");
 const moodRoutes = require("./routes/moodRoutes");
 
 const app = express();
 
-// ✅ Allowed frontend origins
-const allowedOrigins = [
-  "https://sno-relax-client.vercel.app",
-  "http://localhost:3000",
-  "https://sno-relax-client-mt4osahbd-kuro-shivs-projects.vercel.app",
-];
+// ✅ Allowed frontend origins from .env
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(",")
+  : [];
 
-// ✅ CORS middleware
+// ✅ CORS
 app.use(
   cors({
     origin: function (origin, callback) {
@@ -35,31 +33,40 @@ app.use(
 
 // ✅ MongoDB
 const connectDB = require("./db");
-connectDB();
+connectDB().catch((err) => {
+  console.error("❌ Failed to connect to MongoDB:", err);
+  process.exit(1);
+});
 
-// ✅ Handle preflight requests
+// ✅ Preflight
 app.options("*", cors());
 
 // ✅ Body parser
 app.use(express.json());
+
+// ✅ Normalize URLs
+app.use((req, res, next) => {
+  req.url = req.url.replace(/\/{2,}/g, "/");
+  next();
+});
 
 // ✅ Root check
 app.get("/", (req, res) => {
   res.send("✅ SnoRelax Backend is running. Use /api/... endpoints.");
 });
 
-// ✅ Mount routes (fixed)
+// ✅ Mount routes
 app.use("/api/auth", authRoutes);
 app.use("/api/community", communityRoutes);
 app.use("/api/moods", moodRoutes);
 
-// ✅ Chatbot POST route
+// ✅ Chatbot
 app.post("/api/chat", (req, res) => {
   const { message } = req.body;
   if (!message) return res.status(400).json({ error: "Message required" });
 
   const pythonScript = path.join(__dirname, "./models/chat_model.py");
-  const python = spawn("python", [pythonScript, message]);
+  const python = spawn("python3", [pythonScript]);
 
   let result = "";
 
@@ -75,12 +82,13 @@ app.post("/api/chat", (req, res) => {
     if (!result) result = "⚠️ No response from Python script.";
     res.json({ sender: "bot", text: result.trim() });
   });
+
+  python.stdin.write(message + "\n");
+  python.stdin.end();
 });
 
 // 404 handler
-app.use((req, res) => {
-  res.status(404).json({ error: "Endpoint not found" });
-});
+app.use((req, res) => res.status(404).json({ error: "Endpoint not found" }));
 
 // Error handler
 app.use((err, req, res, next) => {
@@ -90,7 +98,4 @@ app.use((err, req, res, next) => {
 
 // ✅ Start server
 const port = process.env.PORT || 5000;
-app.listen(port, () =>
-  console.log(`🚀 SnoRelax server running on port ${port}`)
-);
-
+app.listen(port, () => console.log(`🚀 SnoRelax server running on port ${port}`));

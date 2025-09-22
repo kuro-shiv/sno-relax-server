@@ -4,10 +4,9 @@ const path = require("path");
 const crypto = require("crypto");
 
 const router = express.Router();
-
 const COMMUNITY_FILE = path.join(__dirname, "../community.json");
 
-// Helpers
+// ===== Helper functions =====
 function readCommunity() {
   if (!fs.existsSync(COMMUNITY_FILE)) {
     return { groups: [], messages: [] };
@@ -19,7 +18,6 @@ function writeCommunity(data) {
   fs.writeFileSync(COMMUNITY_FILE, JSON.stringify(data, null, 2));
 }
 
-// Ensure default groups exist
 function ensureDefaultGroups() {
   const db = readCommunity();
 
@@ -51,6 +49,8 @@ function ensureDefaultGroups() {
     writeCommunity(db);
   }
 }
+
+// ===== Routes =====
 
 // ✅ Create a new group
 router.post("/create", (req, res) => {
@@ -85,6 +85,7 @@ router.get("/groups", (req, res) => {
 router.post("/join/:groupId", (req, res) => {
   const { userId } = req.body;
   const { groupId } = req.params;
+
   if (!userId) return res.status(400).json({ error: "userId required" });
 
   const db = readCommunity();
@@ -103,6 +104,7 @@ router.post("/join/:groupId", (req, res) => {
 router.post("/leave/:groupId", (req, res) => {
   const { userId } = req.body;
   const { groupId } = req.params;
+
   if (!userId) return res.status(400).json({ error: "userId required" });
 
   const db = readCommunity();
@@ -119,6 +121,7 @@ router.post("/leave/:groupId", (req, res) => {
 router.post("/:groupId/message", (req, res) => {
   const { userId, text } = req.body;
   const { groupId } = req.params;
+
   if (!userId || !text) {
     return res.status(400).json({ error: "userId & text required" });
   }

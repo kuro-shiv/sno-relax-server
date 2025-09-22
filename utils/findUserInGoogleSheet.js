@@ -6,10 +6,12 @@ const crypto = require("crypto");
 const USERS_FILE = path.join(__dirname, "../users.json");
 const LOCAL_CREDENTIALS_PATH = path.join(__dirname, "../google-credentials.json");
 
+// ===== Helper functions =====
 function readUsers() {
   if (!fs.existsSync(USERS_FILE)) return [];
   return JSON.parse(fs.readFileSync(USERS_FILE, "utf-8"));
 }
+
 function writeUsers(users) {
   fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
 }
@@ -25,10 +27,12 @@ function loadServiceAccountCredentials() {
   }
 
   throw new Error(
-    "Google service account credentials not found. Set GOOGLE_SERVICE_ACCOUNT env (base64) or place google-credentials.json in project root."
+    "Google service account credentials not found. " +
+    "Set GOOGLE_SERVICE_ACCOUNT env (base64) or place google-credentials.json in project root."
   );
 }
 
+// ===== Find user in Google Sheet =====
 async function findUserInGoogleSheet(email, phone, extraData = {}) {
   const SHEET_ID = process.env.GOOGLE_SHEET_ID;
   const SHEET_RANGE = process.env.GOOGLE_SHEET_RANGE || "Users!A:D";
@@ -49,11 +53,10 @@ async function findUserInGoogleSheet(email, phone, extraData = {}) {
   const rows = result.data.values || [];
   if (rows.length === 0) return null;
 
+  // Skip header if exists
   let startIndex = 0;
   const headerRow = rows[0].map((c) => String(c).toLowerCase());
-  if (headerRow.includes("firstname") || headerRow.includes("email")) {
-    startIndex = 1;
-  }
+  if (headerRow.includes("firstname") || headerRow.includes("email")) startIndex = 1;
 
   const normEmail = (email || "").trim().toLowerCase();
   const normPhone = (phone || "").replace(/\s+/g, "").replace(/[^\d+]/g, "");
@@ -78,12 +81,14 @@ async function findUserInGoogleSheet(email, phone, extraData = {}) {
     (matchingRow[3] || "").replace(/\s+/g, "").replace(/[^\d+]/g, ""),
   ];
 
+  // Check local users
   const users = readUsers();
   let user = users.find(
     (u) => (u.email && u.email === sheetEmail) || (u.phone && u.phone === sheetPhone)
   );
   if (user) return user;
 
+  // Generate userId
   const now = new Date();
   const month = String(now.getMonth() + 1).padStart(2, "0");
   const year = now.getFullYear();
