@@ -16,7 +16,7 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(",")
   : [];
 
-// ✅ CORS
+// ✅ CORS middleware (handles preflight automatically)
 app.use(
   cors({
     origin: function (origin, callback) {
@@ -28,17 +28,12 @@ app.use(
       }
     },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
-// ✅ MongoDB
-const connectDB = require("./db");
-connectDB().catch((err) => {
-  console.error("❌ Failed to connect to MongoDB:", err);
-  process.exit(1);
-});
-
-// ✅ Preflight
+// ✅ Preflight handling for all routes
 app.options("*", cors());
 
 // ✅ Body parser
@@ -94,6 +89,13 @@ app.use((req, res) => res.status(404).json({ error: "Endpoint not found" }));
 app.use((err, req, res, next) => {
   console.error("🔥 Server Error:", err.stack);
   res.status(500).json({ error: err.message || "Internal Server Error" });
+});
+
+// ✅ MongoDB connection
+const connectDB = require("./db");
+connectDB().catch((err) => {
+  console.error("❌ Failed to connect to MongoDB:", err);
+  process.exit(1);
 });
 
 // ✅ Start server
