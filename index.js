@@ -9,28 +9,30 @@ const authRoutes = require("./routes/authRoutes");
 const communityRoutes = require("./routes/communityRoutes");
 const moodRoutes = require("./routes/moodRoutes");
 
+// MongoDB connection
+const connectDB = require("./db");
+
 const app = express();
 
-// Allowed origins from .env
+// Allowed origins
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(",")
   : [];
 
-// CORS middleware
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) callback(null, true);
-      else callback(new Error("Not allowed by CORS: " + origin));
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
-);
+// CORS options
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) callback(null, true);
+    else callback(new Error("Not allowed by CORS: " + origin));
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
 
-// Handle preflight OPTIONS globally
-app.options("*", cors());
+// Apply CORS middleware
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions)); // handle preflight
 
 // Body parser
 app.use(express.json());
@@ -41,14 +43,13 @@ app.use((req, res, next) => {
   next();
 });
 
-// MongoDB
-const connectDB = require("./db");
+// Connect MongoDB
 connectDB().catch((err) => {
   console.error("❌ Failed to connect to MongoDB:", err);
   process.exit(1);
 });
 
-// Root endpoint
+// Root
 app.get("/", (req, res) => {
   res.send("✅ SnoRelax Backend is running. Use /api/... endpoints.");
 });
@@ -58,7 +59,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/community", communityRoutes);
 app.use("/api/moods", moodRoutes);
 
-// Chatbot endpoint
+// Chatbot route
 app.post("/api/chat", (req, res) => {
   const { message } = req.body;
   if (!message) return res.status(400).json({ error: "Message required" });
@@ -85,7 +86,7 @@ app.post("/api/chat", (req, res) => {
   python.stdin.end();
 });
 
-// 404 handler
+// 404
 app.use((req, res) => res.status(404).json({ error: "Endpoint not found" }));
 
 // Error handler
@@ -96,6 +97,4 @@ app.use((err, req, res, next) => {
 
 // Start server
 const port = process.env.PORT || 5000;
-app.listen(port, () =>
-  console.log(`🚀 SnoRelax server running on port ${port}`)
-);
+app.listen(port, () => console.log(`🚀 SnoRelax server running on port ${port}`));
