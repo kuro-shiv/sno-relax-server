@@ -1,53 +1,38 @@
 const express = require("express");
-const crypto = require("crypto");
 const User = require("../models/User");
+const findUserInGoogleSheet = require("../utils/findUserInGoogleSheet");
 
 const router = express.Router();
 
-// Helpers
-function normalizeEmail(email = "") {
-  return String(email).trim().toLowerCase();
-}
-
-function normalizePhone(phone = "") {
-  return String(phone).replace(/\s+/g, "").replace(/[^\d+]/g, "");
-}
-
-// ✅ Create/Login User
 router.post("/create-user", async (req, res) => {
   try {
-    let { firstName, lastName, email, phone, city, latitude, longitude } = req.body;
+    const { firstName, lastName, email, phone, city, latitude, longitude } = req.body;
 
     if (!firstName || !lastName || !email || !phone) {
-      return res.status(400).json({ error: "Missing fields" });
+      return res.status(400).json({ error: "All fields are required" });
     }
 
-    email = normalizeEmail(email);
-    phone = normalizePhone(phone);
-
-    // Check if user exists
     let user = await User.findOne({ $or: [{ email }, { phone }] });
-    if (user) {
-      return res.json({ ok: true, userId: user.userId, role: "user" });
+
+    if (!user) {
+      const userId = `${firstName[0].toUpperCase()}${lastName[0].toUpperCase()}-${Date.now()}`;
+      user = new User({
+        userId,
+        firstName,
+        lastName,
+        email,
+        phone,
+        city: city || "NAN",
+        latitude: latitude || 0,
+        longitude: longitude || 0,
+      });
+      await user.save();
     }
 
-    // Generate userId
-    const now = new Date();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const year = now.getFullYear();
-    const initials = `${firstName[0].toUpperCase()}${lastName[0].toUpperCase()}`;
-    const cityCode = city && city.length >= 3 ? city.slice(0, 3).toUpperCase() : "NAN";
-    const hash = crypto.createHash("sha256").update(email + phone).digest("hex").slice(0, 7);
-    const userId = `${initials}-${month}-${year}-${cityCode}-${hash}`;
-
-    // Save to DB
-    user = new User({ userId, firstName, lastName, email, phone, city, latitude, longitude });
-    await user.save();
-
-    res.json({ ok: true, userId, role: "user" });
+    res.json({ userId: user.userId, user });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Server error" });
+    console.error("Error in create-user:", err);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
