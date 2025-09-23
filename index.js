@@ -65,7 +65,7 @@ app.post("/api/location", async (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/community", communityRoutes);
 app.use("/api/moods", moodRoutes);
-app.use("/api/chat", chatRoutes); // Cohere chatbot
+app.use("/api/chat", chatbotRoutes); // Cohere chatbot
 
 // ----------------- OLD PYTHON CHATBOT (commented) -----------------
 // app.post("/api/chat", (req, res) => {
