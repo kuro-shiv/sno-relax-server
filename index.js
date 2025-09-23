@@ -2,15 +2,14 @@ const express = require("express");
 const cors = require("cors");
 const fetch = require("node-fetch");
 require("dotenv").config();
+// const { spawn } = require("child_process"); // old Python chatbot, keep commented
 const path = require("path");
-// const { spawn } = require("child_process"); // commented, old Python chatbot
 
 // Routes
 const authRoutes = require("./routes/authRoutes");
 const communityRoutes = require("./routes/communityRoutes");
 const moodRoutes = require("./routes/moodRoutes");
 const chatRoutes = require("./routes/chatbotRoutes"); // Cohere chatbot
-app.use("/api/chat", chatRoutes);
 
 const connectDB = require("./db");
 connectDB();
@@ -62,11 +61,11 @@ app.post("/api/location", async (req, res) => {
   }
 });
 
-// Mount routes
+// Mount all routes
 app.use("/api/auth", authRoutes);
 app.use("/api/community", communityRoutes);
 app.use("/api/moods", moodRoutes);
-app.use("/api/chat", chatbotRoutes); // Cohere chatbot
+app.use("/api/chat", chatRoutes); // ✅ Cohere chatbot route
 
 // ----------------- OLD PYTHON CHATBOT (commented) -----------------
 // app.post("/api/chat", (req, res) => {
