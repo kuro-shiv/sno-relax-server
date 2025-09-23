@@ -1,4 +1,3 @@
-# models/chat_model.py
 import random
 import json
 import pickle
@@ -8,25 +7,19 @@ from tensorflow.keras.models import load_model
 import nltk
 from nltk.stem import WordNetLemmatizer
 
-# Initialize lemmatizer
 lemmatizer = WordNetLemmatizer()
 
 # ===== Load model and data =====
-try:
-    model = load_model("chat_model.h5")
-    with open("intents.json") as f:
-        intents = json.load(f)
-    words = pickle.load(open("words.pkl", "rb"))
-    classes = pickle.load(open("classes.pkl", "rb"))
-except Exception as e:
-    print(f"Error loading model or data: {e}")
-    sys.exit(1)
+model = load_model("chat_model.h5")
+with open("intents.json") as f:
+    intents = json.load(f)
+words = pickle.load(open("words.pkl", "rb"))
+classes = pickle.load(open("classes.pkl", "rb"))
 
 # ===== Functions =====
 def clean_up_sentence(sentence):
     sentence_words = nltk.word_tokenize(sentence)
-    sentence_words = [lemmatizer.lemmatize(word.lower()) for word in sentence_words]
-    return sentence_words
+    return [lemmatizer.lemmatize(word.lower()) for word in sentence_words]
 
 def bow(sentence):
     sentence_words = clean_up_sentence(sentence)
@@ -52,17 +45,12 @@ def get_response(intents_list):
     responses = next((i["responses"] for i in intents["intents"] if i["tag"] == tag), [])
     return random.choice(responses) if responses else "Hmm, I don't know how to respond to that."
 
-# ===== Entry point for Node.js =====
+# ===== Entry point =====
 if __name__ == "__main__":
-    try:
-        if len(sys.argv) < 2:
-            print("No message provided")
-            sys.exit(1)
-
-        user_input = " ".join(sys.argv[1:])
-        intents_list = predict_class(user_input)
-        response = get_response(intents_list)
-        print(response)  # Node.js captures stdout
-    except Exception as e:
-        print(f"Error processing message: {e}")
+    user_input = " ".join(sys.argv[1:]).strip()
+    if not user_input:
+        print("⚠️ No message provided")
         sys.exit(1)
+    intents_list = predict_class(user_input)
+    response = get_response(intents_list)
+    print(response)
