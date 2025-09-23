@@ -1,17 +1,19 @@
 const express = require("express");
 const User = require("../models/User");
-const findUserInGoogleSheet = require("../utils/findUserInGoogleSheet");
 
 const router = express.Router();
 
+// POST /api/auth/create-user
 router.post("/create-user", async (req, res) => {
   try {
     const { firstName, lastName, email, phone, city, latitude, longitude } = req.body;
 
-    if (!firstName || !lastName || !email || !phone) {
-      return res.status(400).json({ error: "All fields are required" });
+    // All fields required
+    if (!firstName || !lastName || !email || !phone || !city || latitude === undefined || longitude === undefined) {
+      return res.status(400).json({ error: "All fields including location are required" });
     }
 
+    // Check existing user by email or phone
     let user = await User.findOne({ $or: [{ email }, { phone }] });
 
     if (!user) {
@@ -22,9 +24,9 @@ router.post("/create-user", async (req, res) => {
         lastName,
         email,
         phone,
-        city: city || "NAN",
-        latitude: latitude || 0,
-        longitude: longitude || 0,
+        city,
+        latitude,
+        longitude,
       });
       await user.save();
     }
