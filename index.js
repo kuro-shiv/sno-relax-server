@@ -1,14 +1,15 @@
 const express = require("express");
 const cors = require("cors");
-const fetch = require("node-fetch"); // npm i node-fetch@2
+const fetch = require("node-fetch");
 require("dotenv").config();
 const path = require("path");
-const { spawn } = require("child_process");
+// const { spawn } = require("child_process"); // commented, old Python chatbot
 
 // Routes
 const authRoutes = require("./routes/authRoutes");
 const communityRoutes = require("./routes/communityRoutes");
 const moodRoutes = require("./routes/moodRoutes");
+const chatRoutes = require("./routes/chatbotRoutes"); // Cohere chatbot
 
 const connectDB = require("./db");
 connectDB();
@@ -16,9 +17,7 @@ connectDB();
 const app = express();
 
 // CORS setup
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(",")
-  : [];
+const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") || [];
 app.use(
   cors({
     origin: (origin, callback) => {
@@ -28,6 +27,7 @@ app.use(
     credentials: true,
   })
 );
+
 app.use(express.json());
 app.options("*", cors());
 
@@ -42,7 +42,7 @@ app.get("/", (req, res) =>
   res.send("✅ SnoRelax Backend is running. Use /api/... endpoints.")
 );
 
-// Location proxy route
+// Location proxy
 app.post("/api/location", async (req, res) => {
   const { latitude, longitude } = req.body;
   if (!latitude || !longitude) return res.json({ city: "NaN" });
@@ -65,28 +65,30 @@ app.post("/api/location", async (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/community", communityRoutes);
 app.use("/api/moods", moodRoutes);
+app.use("/api/chat", chatRoutes); // Cohere chatbot
 
-// Chatbot endpoint
-app.post("/api/chat", (req, res) => {
-  const { message } = req.body;
-  if (!message) return res.status(400).json({ error: "Message required" });
+// ----------------- OLD PYTHON CHATBOT (commented) -----------------
+// app.post("/api/chat", (req, res) => {
+//   const { message } = req.body;
+//   if (!message) return res.status(400).json({ error: "Message required" });
 
-  const pythonScript = path.join(__dirname, "./models/chat_model.py");
-  const python = spawn("python3", [pythonScript]);
+//   const pythonScript = path.join(__dirname, "./models/chat_model.py");
+//   const python = spawn("python3", [pythonScript]);
 
-  let result = "";
-  python.stdout.on("data", (data) => (result += data.toString()));
-  python.stderr.on("data", (err) =>
-    console.error("Python error:", err.toString())
-  );
-  python.on("close", () => {
-    if (!result) result = "⚠️ No response from Python script.";
-    res.json({ sender: "bot", text: result.trim() });
-  });
+//   let result = "";
+//   python.stdout.on("data", (data) => (result += data.toString()));
+//   python.stderr.on("data", (err) =>
+//     console.error("Python error:", err.toString())
+//   );
+//   python.on("close", () => {
+//     if (!result) result = "⚠️ No response from Python script.";
+//     res.json({ sender: "bot", text: result.trim() });
+//   });
 
-  python.stdin.write(message + "\n");
-  python.stdin.end();
-});
+//   python.stdin.write(message + "\n");
+//   python.stdin.end();
+// });
+// ------------------------------------------------------------------
 
 // 404 handler
 app.use((req, res) => res.status(404).json({ error: "Endpoint not found" }));
