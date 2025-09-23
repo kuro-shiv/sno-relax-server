@@ -12,7 +12,7 @@ router.post("/", async (req, res) => {
   try {
     const response = await cohere.generate({
       model: "xlarge",
-      prompt: `You are a friendly mental health chatbot. Respond kindly and supportively.\nUser: ${message}\nBot:`,
+      prompt: `You are a friendly mental health chatbot. Respond to the user in a kind and supportive way.\nUser: ${message}\nBot:`,
       max_tokens: 60,
       temperature: 0.7,
       stop_sequences: ["User:", "Bot:"],

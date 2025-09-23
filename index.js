@@ -10,6 +10,7 @@ const authRoutes = require("./routes/authRoutes");
 const communityRoutes = require("./routes/communityRoutes");
 const moodRoutes = require("./routes/moodRoutes");
 const chatRoutes = require("./routes/chatbotRoutes"); // Cohere chatbot
+app.use("/api/chat", chatRoutes);
 
 const connectDB = require("./db");
 connectDB();
