@@ -15,7 +15,7 @@ connectDB();
 
 const app = express();
 
-// CORS
+// CORS setup
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(",")
   : [];
@@ -76,7 +76,9 @@ app.post("/api/chat", (req, res) => {
 
   let result = "";
   python.stdout.on("data", (data) => (result += data.toString()));
-  python.stderr.on("data", (err) => console.error("Python error:", err.toString()));
+  python.stderr.on("data", (err) =>
+    console.error("Python error:", err.toString())
+  );
   python.on("close", () => {
     if (!result) result = "⚠️ No response from Python script.";
     res.json({ sender: "bot", text: result.trim() });
@@ -95,5 +97,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message || "Internal Server Error" });
 });
 
-const port = process.env.PORT || 5000;
-app.listen(port, () => console.log(`🚀 SnoRelax server running on port ${port}`));
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () =>
+  console.log(`🚀 SnoRelax server running on port ${PORT}`)
+);
