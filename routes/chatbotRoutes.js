@@ -1,9 +1,8 @@
-// routes/chatbotRoutes.js
 const express = require("express");
 const router = express.Router();
 const cohere = require("cohere-ai");
 
-// Initialize Cohere with your API key
+// Initialize Cohere
 cohere.init(process.env.COHERE_API_KEY);
 
 router.post("/", async (req, res) => {
