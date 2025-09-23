@@ -1,27 +1,33 @@
 // routes/chatbotRoutes.js
 const express = require("express");
 const router = express.Router();
-const { spawn } = require("child_process");
-const path = require("path");
+const cohere = require("cohere-ai");
 
-router.post("/", (req, res) => {
+// Initialize Cohere with your API key
+cohere.init(process.env.COHERE_API_KEY);
+
+router.post("/", async (req, res) => {
   const { message } = req.body;
   if (!message) return res.status(400).json({ error: "Message required" });
 
-  const pythonScript = path.join(__dirname, "../models/chat_model.py");
+  try {
+    const response = await cohere.generate({
+      model: "xlarge",
+      prompt: `You are a friendly mental health chatbot. Respond to the user in a kind and supportive way.\nUser: ${message}\nBot:`,
+      max_tokens: 60,
+      temperature: 0.7,
+      stop_sequences: ["User:", "Bot:"],
+    });
 
-  // Pass message as command-line argument
-  const python = spawn("python3", [pythonScript, message]);
-
-  let result = "";
-
-  python.stdout.on("data", (data) => (result += data.toString()));
-  python.stderr.on("data", (err) => console.error("Python error:", err.toString()));
-
-  python.on("close", () => {
-    if (!result) result = "⚠️ No response from Python script.";
-    res.json({ sender: "bot", text: result.trim() });
-  });
+    const botReply = response.body.generations[0].text.trim();
+    res.json({ sender: "bot", text: botReply });
+  } catch (err) {
+    console.error("Cohere error:", err);
+    res.status(500).json({
+      sender: "bot",
+      text: "⚠️ Sorry, the bot is currently unavailable.",
+    });
+  }
 });
 
 module.exports = router;
