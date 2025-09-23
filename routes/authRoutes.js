@@ -1,4 +1,5 @@
 const express = require("express");
+const crypto = require("crypto");
 const User = require("../models/User");
 
 const router = express.Router();
@@ -17,7 +18,26 @@ router.post("/create-user", async (req, res) => {
     let user = await User.findOne({ $or: [{ email }, { phone }] });
 
     if (!user) {
-      const userId = `${firstName[0].toUpperCase()}${lastName[0].toUpperCase()}-${Date.now()}`;
+      // === ID Generation ===
+      const initials = `${firstName[0]}${lastName[0]}`.toUpperCase();
+
+      const date = new Date();
+      const day = String(date.getDate()).padStart(2, "0"); // e.g. "01"
+      const year = date.getFullYear();
+
+      const cityCode = city.substring(0, 3).toUpperCase();
+
+      // Unique part from email + phone
+      const uniqueHash = crypto
+        .createHash("md5")
+        .update(email + phone)
+        .digest("hex")
+        .substring(0, 8) // 8 chars
+        .toUpperCase();
+
+      const userId = `${initials}-${day}-${year}-${cityCode}-${uniqueHash}`;
+
+      // Save new user
       user = new User({
         userId,
         firstName,
@@ -28,6 +48,7 @@ router.post("/create-user", async (req, res) => {
         latitude,
         longitude,
       });
+
       await user.save();
     }
 
