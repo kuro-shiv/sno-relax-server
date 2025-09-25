@@ -1,12 +1,8 @@
 const express = require("express");
 const router = express.Router();
-const cohere = require("cohere-ai");
 const fetch = require("node-fetch");
 const { spawn } = require("child_process");
 const ChatHistory = require("../models/ChatHistory");
-
-// Initialize Cohere
-cohere.init(process.env.COHERE_API_KEY);
 
 // Optional: free translation API
 const TRANSLATE_API = "https://libretranslate.com/translate";
@@ -16,7 +12,7 @@ router.post("/", async (req, res) => {
   if (!message) return res.status(400).json({ error: "Message required" });
 
   try {
-    // -------- Translate to English --------
+    // -------- Translate to English if needed --------
     let translatedText = message;
     if (lang !== "en" && lang !== "auto") {
       const transRes = await fetch(TRANSLATE_API, {
@@ -42,19 +38,11 @@ router.post("/", async (req, res) => {
     pythonScript.on("close", async () => {
       botReply = botReply.trim();
 
-      // -------- Cohere fallback --------
       if (!botReply || pythonError) {
-        const cohereResp = await cohere.generate({
-          model: "xlarge",
-          prompt: `You are a friendly mental health chatbot. Respond kindly.\nUser: ${translatedText}\nBot:`,
-          max_tokens: 60,
-          temperature: 0.7,
-          stop_sequences: ["User:", "Bot:"],
-        });
-        botReply = cohereResp.body.generations[0].text.trim();
+        botReply = "I'm still learning. Could you rephrase or ask another way?";
       }
 
-      // -------- Store in MongoDB for self-learning --------
+      // -------- Store in MongoDB --------
       try {
         await ChatHistory.create({
           userMessage: message,
