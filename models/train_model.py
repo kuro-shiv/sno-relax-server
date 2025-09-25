@@ -1,80 +1,53 @@
-# models/train_model.py
-import json
-import numpy as np
-import nltk
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Dropout
-from tensorflow.keras.optimizers import SGD
-import pickle
-import os
+import sys, json, os
+from datetime import datetime
+from pymongo import MongoClient
 
-# ===== Download necessary NLTK data =====
-nltk.download("punkt")
-nltk.download("wordnet")
+# MongoDB connection
+MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
+client = MongoClient(MONGO_URI)
+db = client["snoRelaxDB"]
+moods_collection = db["moods"]
 
-from nltk.stem import WordNetLemmatizer
-lemmatizer = WordNetLemmatizer()
+# Mood categories & keywords
+MOOD_KEYWORDS = {
+    "happy": ["happy", "good", "joy", "great", "excited", "amazing", "love"],
+    "sad": ["sad", "depressed", "down", "unhappy", "cry", "lonely"],
+    "angry": ["angry", "mad", "frustrated", "hate", "annoyed"],
+    "stressed": ["stressed", "overwhelmed", "pressure", "tired", "burnout"],
+    "anxiety": ["anxious", "nervous", "worried", "panic", "afraid", "fear"],
+    "emotional": ["emotional", "touchy", "sensitive", "tearful"]
+}
 
-# ===== Load intents file =====
-MODEL_DIR = os.path.dirname(__file__)
-INTENTS_FILE = os.path.join(MODEL_DIR, "intents.json")
+def detect_mood(message):
+    message_lower = message.lower()
+    for mood, keywords in MOOD_KEYWORDS.items():
+        for kw in keywords:
+            if kw in message_lower:
+                return mood
+    return "neutral"
 
-if not os.path.exists(INTENTS_FILE):
-    raise FileNotFoundError(f"Intents file not found at {INTENTS_FILE}")
+# Load chat history
+history_file = "./chat_memory.json"
+history = []
+if os.path.exists(history_file):
+    with open(history_file, "r", encoding="utf-8") as f:
+        history = json.load(f)
 
-with open(INTENTS_FILE, "r") as f:
-    intents = json.load(f)
+# Insert moods into DB
+for conv in history:
+    user_msg = conv["user"]
+    timestamp = conv.get("timestamp", datetime.now().isoformat())
 
-# ===== Prepare data =====
-words = []
-classes = []
-documents = []
+    # Check if already in DB
+    if moods_collection.find_one({"userMessage": user_msg}):
+        continue
 
-for intent in intents.get("intents", []):
-    for pattern in intent.get("patterns", []):
-        tokens = nltk.word_tokenize(pattern)
-        words.extend(tokens)
-        documents.append((tokens, intent["tag"]))
-        if intent["tag"] not in classes:
-            classes.append(intent["tag"])
+    mood = detect_mood(user_msg)
+    moods_collection.insert_one({
+        "userId": conv.get("userId", "guest"),
+        "userMessage": user_msg,
+        "mood": mood,
+        "timestamp": timestamp
+    })
 
-# Lemmatize and clean words
-words = [lemmatizer.lemmatize(w.lower()) for w in words if w.isalpha()]
-words = sorted(list(set(words)))
-classes = sorted(list(set(classes)))
-
-# ===== Create training data =====
-training = []
-output_empty = [0] * len(classes)
-
-for doc in documents:
-    bag = [1 if w in [lemmatizer.lemmatize(w.lower()) for w in doc[0]] else 0 for w in words]
-    output_row = list(output_empty)
-    output_row[classes.index(doc[1])] = 1
-    training.append([bag, output_row])
-
-training = np.array(training, dtype=object)
-train_x = np.array(list(training[:, 0]))
-train_y = np.array(list(training[:, 1]))
-
-# ===== Build model =====
-model = Sequential()
-model.add(Dense(128, input_shape=(len(train_x[0]),), activation="relu"))
-model.add(Dropout(0.5))
-model.add(Dense(64, activation="relu"))
-model.add(Dropout(0.5))
-model.add(Dense(len(train_y[0]), activation="softmax"))
-
-# ===== Compile model =====
-sgd = SGD(learning_rate=0.01, momentum=0.9, nesterov=True)
-model.compile(loss="categorical_crossentropy", optimizer=sgd, metrics=["accuracy"])
-
-# ===== Train model =====
-model.fit(train_x, train_y, epochs=200, batch_size=5, verbose=1)
-
-# ===== Save model and related data =====
-model.save(os.path.join(MODEL_DIR, "chat_model.h5"))
-pickle.dump(words, open(os.path.join(MODEL_DIR, "words.pkl"), "wb"))
-pickle.dump(classes, open(os.path.join(MODEL_DIR, "classes.pkl"), "wb"))
-
-print("✅ Model trained and saved successfully!")
+print(f"✅ Processed {len(history)} messages, moods saved to DB")
