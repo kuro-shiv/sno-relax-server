@@ -2,11 +2,12 @@ const express = require("express");
 const router = express.Router();
 const cohere = require("cohere-ai");
 const fetch = require("node-fetch");
-const { spawn } = require("child_process");
-const fs = require("fs");
-const path = require("path");
+const ChatHistory = require("../models/ChatHistory");
 
+// Init Cohere
 cohere.init(process.env.COHERE_API_KEY);
+
+// LibreTranslate free API
 const TRANSLATE_API = "https://libretranslate.com/translate";
 
 router.post("/", async (req, res) => {
@@ -14,8 +15,9 @@ router.post("/", async (req, res) => {
   if (!message) return res.status(400).json({ error: "Message required" });
 
   try {
+    // ---- Translate to English ----
     let translatedText = message;
-    if (lang !== "en" && lang !== "auto") {
+    if (lang !== "en") {
       const transRes = await fetch(TRANSLATE_API, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -25,39 +27,25 @@ router.post("/", async (req, res) => {
       translatedText = data.translatedText || message;
     }
 
-    const pythonScript = spawn("python3", [path.join(__dirname, "../models/chat_model.py")]);
-    let pythonReply = "";
-    let pythonError = false;
-
-    pythonScript.stdout.on("data", (data) => (pythonReply += data.toString()));
-    pythonScript.stderr.on("data", (err) => { pythonError = true; console.error("Python error:", err.toString()); });
-
-    pythonScript.on("close", async () => {
-      let botReply = pythonReply.trim();
-
-      if (!botReply || pythonError) {
-        const cohereResp = await cohere.generate({
-          model: "xlarge",
-          prompt: `You are a friendly mental health chatbot. Respond kindly.\nUser: ${translatedText}\nBot:`,
-          max_tokens: 60,
-          temperature: 0.7,
-          stop_sequences: ["User:", "Bot:"],
-        });
-        botReply = cohereResp.body.generations[0].text.trim();
-      }
-
-      const file = path.join(__dirname, "../chat_history.json");
-      let history = [];
-      if (fs.existsSync(file)) history = JSON.parse(fs.readFileSync(file, "utf-8"));
-      history.push({ user: message, bot: botReply, timestamp: new Date().toISOString() });
-      fs.writeFileSync(file, JSON.stringify(history, null, 2));
-
-      res.json({ sender: "bot", text: botReply });
+    // ---- Cohere response ----
+    const cohereResp = await cohere.generate({
+      model: "xlarge",
+      prompt: `You are a kind mental health assistant.\nUser: ${translatedText}\nBot:`,
+      max_tokens: 60,
+      temperature: 0.7,
+      stop_sequences: ["User:", "Bot:"],
     });
 
-    pythonScript.stdin.write(translatedText + "\n");
-    pythonScript.stdin.end();
+    const botReply = cohereResp.body.generations[0].text.trim();
 
+    // ---- Save to DB ----
+    await ChatHistory.create({
+      user: message,
+      bot: botReply,
+      lang,
+    });
+
+    res.json({ sender: "bot", text: botReply });
   } catch (err) {
     console.error("Chat error:", err);
     res.status(500).json({ sender: "bot", text: "⚠️ Sorry, bot unavailable." });
