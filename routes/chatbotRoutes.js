@@ -1,66 +1,78 @@
 const express = require("express");
 const router = express.Router();
-const { CohereClient } = require("cohere-ai");
+const cohere = require("cohere-ai");
 const fetch = require("node-fetch");
+const { spawn } = require("child_process");
 const ChatHistory = require("../models/ChatHistory");
 
-// ✅ Cohere client
-const cohere = new CohereClient({
-  token: process.env.COHERE_API_KEY,
-});
+// Initialize Cohere
+cohere.init(process.env.COHERE_API_KEY);
 
-// ✅ Free translator API
+// Optional: free translation API
 const TRANSLATE_API = "https://libretranslate.com/translate";
 
-// ---------- Chatbot Route ----------
 router.post("/", async (req, res) => {
   const { message, lang = "auto" } = req.body;
   if (!message) return res.status(400).json({ error: "Message required" });
 
   try {
-    // ---- Step 1: Translate user input to English ----
+    // -------- Translate to English --------
     let translatedText = message;
-    if (lang !== "en") {
+    if (lang !== "en" && lang !== "auto") {
       const transRes = await fetch(TRANSLATE_API, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          q: message,
-          source: lang,
-          target: "en",
-        }),
+        body: JSON.stringify({ q: message, source: lang, target: "en" }),
       });
       const data = await transRes.json();
       translatedText = data.translatedText || message;
     }
 
-    // ---- Step 2: Get response from Cohere ----
-    const cohereResp = await cohere.generate({
-      model: "command-r-plus", // ✅ stable model
-      prompt: `You are a kind mental health assistant.\nUser: ${translatedText}\nBot:`,
-      maxTokens: 80,
-      temperature: 0.7,
-      stopSequences: ["User:", "Bot:"],
+    // -------- Python fallback chatbot --------
+    let botReply = "";
+    let pythonError = false;
+
+    const pythonScript = spawn("python3", ["./models/chat_model.py"]);
+    pythonScript.stdout.on("data", (data) => (botReply += data.toString()));
+    pythonScript.stderr.on("data", (err) => {
+      console.error("Python error:", err.toString());
+      pythonError = true;
     });
 
-    const botReply = cohereResp.generations[0].text.trim();
+    pythonScript.on("close", async () => {
+      botReply = botReply.trim();
 
-    // ---- Step 3: Save to MongoDB ----
-    await ChatHistory.create({
-      user: message,
-      bot: botReply,
-      lang,
-      timestamp: new Date(),
+      // -------- Cohere fallback --------
+      if (!botReply || pythonError) {
+        const cohereResp = await cohere.generate({
+          model: "xlarge",
+          prompt: `You are a friendly mental health chatbot. Respond kindly.\nUser: ${translatedText}\nBot:`,
+          max_tokens: 60,
+          temperature: 0.7,
+          stop_sequences: ["User:", "Bot:"],
+        });
+        botReply = cohereResp.body.generations[0].text.trim();
+      }
+
+      // -------- Store in MongoDB for self-learning --------
+      try {
+        await ChatHistory.create({
+          userMessage: message,
+          botReply,
+          timestamp: new Date(),
+        });
+      } catch (err) {
+        console.error("Failed to store chat history:", err);
+      }
+
+      res.json({ sender: "bot", text: botReply });
     });
 
-    // ---- Step 4: Send response ----
-    res.json({ sender: "bot", text: botReply });
+    pythonScript.stdin.write(translatedText + "\n");
+    pythonScript.stdin.end();
   } catch (err) {
-    console.error("🔥 Chat error:", err);
-    res.status(500).json({
-      sender: "bot",
-      text: "⚠️ Sorry, bot is currently unavailable.",
-    });
+    console.error("Chat error:", err);
+    res.status(500).json({ sender: "bot", text: "⚠️ Sorry, bot unavailable." });
   }
 });
 
