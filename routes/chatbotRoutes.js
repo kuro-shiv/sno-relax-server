@@ -5,8 +5,8 @@ const fetch = require("node-fetch");
 const { spawn } = require("child_process");
 const ChatHistory = require("../models/ChatHistory");
 
-// Initialize Cohere client (new SDK style)
-const cohereClient = new cohere.Client(process.env.COHERE_API_KEY);
+// Initialize Cohere
+cohere.init(process.env.COHERE_API_KEY);
 
 // Optional: free translation API
 const TRANSLATE_API = "https://libretranslate.com/translate";
@@ -44,7 +44,7 @@ router.post("/", async (req, res) => {
 
       // -------- Cohere fallback --------
       if (!botReply || pythonError) {
-        const cohereResp = await cohereClient.generate({
+        const cohereResp = await cohere.generate({
           model: "xlarge",
           prompt: `You are a friendly mental health chatbot. Respond kindly.\nUser: ${translatedText}\nBot:`,
           max_tokens: 60,
