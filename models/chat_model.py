@@ -51,10 +51,8 @@ FEELING_RESPONSES = [
     "I feel great talking to you!",
     "I'm good! How about you?",
     "Feeling energetic! Let's talk more.",
-    "I'm here to help you relax!",
     "I'm doing well, thanks for asking! 😊",
-    "All systems operational! How can I assist you today?",
-    "I'm just a bunch of code, but I'm happy to be chatting with you!",
+    "All systems operational! Just like your beauty. 😉",
     "Feeling fantastic! What about you?",
     "I'm here to make your day better! How are you feeling?"
 ]
@@ -89,6 +87,20 @@ def basic_response(user_input):
         return random.choice(FAREWELL_RESPONSES)
     if any(word in user_input for word in ["how are you", "how's it going"]):
         return random.choice(FEELING_RESPONSES)
+    if any(word in user_input for word in ["help", "assist", "support"]):
+        return "I'm here to help! What do you need assistance with?"
+    if any(word in user_input for word in ["about", "info", "information"]):
+        return "I'm SnoBot 🌱, your friendly chatbot here to chat and have fun!"
+    if any(word in user_input for word in ["sad", "unhappy", "depressed"]):
+        return "I'm sorry to hear that. Remember, it's okay to feel down sometimes. I'm here if you want to talk."  
+    if any(word in user_input for word in ["happy", "joyful", "excited"]):
+        return "That's wonderful to hear! 😊 What’s making you feel this way?"
+    if any(word in user_input for word in ["bored", "tired", "sleepy"]):
+        return "Maybe a fun fact or a joke will cheer you up! Want to hear one?"
+    if any(word in user_input for word in ["love", "like", "favorite"]):
+        return "I love chatting with you! What's something you really like?"
+    if any(word in user_input for word in ["accident", "injury", "hurt"]):
+        return "I'm sorry to hear that. I hope you're okay! If you need help, please reach out to a professional."
     if "your name" in user_input:
         return "I'm SnoBot 🌱, your friendly chatbot!"
     if "time" in user_input:
