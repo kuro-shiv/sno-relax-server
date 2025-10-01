@@ -24,34 +24,61 @@ GREETING_RESPONSES = [
     "Hello! 😊 How's your day going?",
     "Hi there! What's new?",
     "Hey! Nice to chat with you.",
-    "Hello! Ready for some fun chat?"
+    "Hello! Ready for some fun chat?",
+    "Hi! How can I assist you today?",
+    "Hey! What's on your mind?",
+    "Greetings! How are you feeling today?",
+    "Hello! Let's have a great conversation! 🌟",
+    "Hi! I'm here to chat whenever you need. 😊",
+    "Hey there! What's up?"
 ]
 
 FAREWELL_RESPONSES = [
     "Goodbye! Take care!",
     "See you later! 👋",
     "Bye! Stay safe.",
-    "Catch you later! Have a good day!"
+    "Catch you later! Have a good day!",
+    "Farewell! Until next time!",
+    "Take it easy! 😊",
+    "See you soon! 🌟",
+    "Have a great day! 🌞",
+    "Bye for now! 👋",
+    "Stay awesome! ✨"
 ]
 
 FEELING_RESPONSES = [
     "I'm just a bot, but I'm happy to chat with you!",
     "I feel great talking to you!",
     "I'm good! How about you?",
-    "Feeling energetic! Let's talk more."
+    "Feeling energetic! Let's talk more.",
+    "I'm here to help you relax!",
+    "I'm doing well, thanks for asking! 😊",
+    "All systems operational! How can I assist you today?",
+    "I'm just a bunch of code, but I'm happy to be chatting with you!",
+    "Feeling fantastic! What about you?",
+    "I'm here to make your day better! How are you feeling?"
 ]
 
 FUN_FACTS = [
     "Did you know honey never spoils? 🍯",
     "Bananas are berries, but strawberries are not! 🍌",
     "Octopuses have three hearts. 🐙",
-    "A group of flamingos is called a 'flamboyance'. 🦩"
+    "A group of flamingos is called a 'flamboyance'. 🦩",
+    "The Eiffel Tower can be 15 cm taller during the summer. 🌞",
+    "Wombat poop is cube-shaped! 🐾",
+    "Cats have fewer toes on their back paws. 🐱",
+    "A day on Venus is longer than a year on Venus. 🪐",
+    "There are more stars in the universe than grains of sand on all the world's beaches. 🌌",
+    "Butterflies can taste with their feet. 🦋"
 ]
 
 JOKES = [
     "Why did the computer go to the doctor? Because it caught a virus! 😄",
     "Why was the math book sad? Because it had too many problems! 📚",
-    "I told my computer I needed a break, and it froze. ❄️"
+    "I told my computer I needed a break, and it froze. ❄️",
+    "Why don't scientists trust atoms? Because they make up everything! ⚛️",
+    "What do you call fake spaghetti? An impasta! 🍝",
+    "Why did the scarecrow win an award? Because he was outstanding in his field! 🌾"
 ]
 
 # ---------------- Pattern-based Responses ----------------
@@ -104,7 +131,13 @@ if not reply:
         "Interesting! Can you explain?",
         "I'm learning new things every day. 😄",
         "Hmm, that's curious!",
-        "Could you elaborate on that?"
+        "Could you elaborate on that?",
+        "That's fascinating! What else?",
+        "I see! Go on...",
+        "Oh, really? Do tell!",
+        "Wow! That's something new to me.",
+        "Let's chat more about it!",
+        "I'm all ears! 😊"
     ]
     reply = random.choice(fallback_phrases)
 
