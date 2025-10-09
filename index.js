@@ -29,7 +29,7 @@ app.use(
 );
 
 app.use(express.json());
-app.options("*", cors());
+
 
 // Normalize URLs
 app.use((req, res, next) => {
