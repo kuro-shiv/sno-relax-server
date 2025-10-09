@@ -3,18 +3,17 @@ const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
 const ChatHistory = require("../models/ChatHistory");
-const Content = require("../models/Content"); // if you have content schema
 
-// ------------------ USERS ------------------
+// ----------------- USERS -----------------
 
 // Get all users
 router.get("/users", async (req, res) => {
   try {
-    const users = await User.find().sort({ createdAt: -1 }); // latest first
+    const users = await User.find().sort({ createdAt: -1 });
     res.json(users);
   } catch (err) {
     console.error("Error fetching users:", err);
-    res.status(500).json({ error: "Failed to fetch users" });
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
@@ -26,35 +25,40 @@ router.get("/users/:id", async (req, res) => {
     res.json(user);
   } catch (err) {
     console.error("Error fetching user:", err);
-    res.status(500).json({ error: "Failed to fetch user" });
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
-// ------------------ CHAT HISTORY ------------------
+// ----------------- CHATS -----------------
 
-// Get all chat history
+// Get chat history (optionally filter by user)
 router.get("/chats", async (req, res) => {
   try {
-    const chats = await ChatHistory.find()
-      .populate("userId", "firstName lastName email") // populate user info
-      .sort({ timestamp: -1 });
+    const { userId } = req.query;
+    let query = {};
+    if (userId) query.userId = userId;
+    const chats = await ChatHistory.find(query).sort({ timestamp: -1 });
     res.json(chats);
   } catch (err) {
     console.error("Error fetching chats:", err);
-    res.status(500).json({ error: "Failed to fetch chat history" });
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
-// ------------------ CONTENT (Optional) ------------------
+// ----------------- STATS -----------------
 
-// Get all content
-router.get("/content", async (req, res) => {
+router.get("/stats", async (req, res) => {
   try {
-    const content = await Content.find().sort({ createdAt: -1 });
-    res.json(content);
+    const totalUsers = await User.countDocuments();
+    const totalChats = await ChatHistory.countDocuments();
+
+    res.json({
+      totalUsers,
+      totalChats,
+    });
   } catch (err) {
-    console.error("Error fetching content:", err);
-    res.status(500).json({ error: "Failed to fetch content" });
+    console.error("Stats error:", err);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
