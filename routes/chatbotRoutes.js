@@ -8,8 +8,8 @@ const ChatHistory = require("../models/ChatHistory");
 const TRANSLATE_API = "https://libretranslate.com/translate";
 
 router.post("/", async (req, res) => {
-  const { message, lang = "auto" } = req.body;
-  if (!message) return res.status(400).json({ error: "Message required" });
+  const { userId, message, lang = "auto" } = req.body;
+  if (!message || !userId) return res.status(400).json({ error: "Message and userId required" });
 
   try {
     // -------- Translate to English if needed --------
@@ -37,17 +37,15 @@ router.post("/", async (req, res) => {
 
     pythonScript.on("close", async () => {
       botReply = botReply.trim();
-
-      if (!botReply || pythonError) {
-        botReply = "I'm still learning. Could you rephrase or ask another way?";
-      }
+      if (!botReply || pythonError) botReply = "I'm still learning. Could you rephrase or ask another way?";
 
       // -------- Store in MongoDB --------
       try {
         await ChatHistory.create({
+          userId,
           userMessage: message,
           botReply,
-          timestamp: new Date(),
+          language: lang
         });
       } catch (err) {
         console.error("Failed to store chat history:", err);

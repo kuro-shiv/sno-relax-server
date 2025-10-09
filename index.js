@@ -10,6 +10,8 @@ const authRoutes = require("./routes/authRoutes");
 const communityRoutes = require("./routes/communityRoutes");
 const moodRoutes = require("./routes/moodRoutes");
 const chatRoutes = require("./routes/chatbotRoutes"); // Cohere chatbot
+const adminRoutes = require("./routes/adminRoutes");
+
 
 const connectDB = require("./db");
 connectDB();
@@ -41,6 +43,10 @@ app.use((req, res, next) => {
 app.get("/", (req, res) =>
   res.send("✅ SnoRelax Backend is running. Use /api/... endpoints.")
 );
+
+// Admin routes
+app.use("/api/admin", adminRoutes);
+
 
 // Location proxy
 app.post("/api/location", async (req, res) => {
