@@ -88,6 +88,34 @@ router.get("/stats", async (req, res) => {
   }
 });
 
+// ----------------- CHAT STATS (Last 7 Days) -----------------
+router.get("/stats/chats", async (req, res) => {
+  try {
+    const today = new Date();
+    const last7Days = Array.from({ length: 7 }).map((_, i) => {
+      const d = new Date();
+      d.setDate(today.getDate() - i);
+      return d;
+    }).reverse();
+
+    const chatCounts = await Promise.all(
+      last7Days.map(async (day) => {
+        const start = new Date(day.setHours(0, 0, 0, 0));
+        const end = new Date(day.setHours(23, 59, 59, 999));
+        const count = await ChatHistory.countDocuments({
+          timestamp: { $gte: start, $lte: end },
+        });
+        return { day: start.toLocaleDateString("en-US", { weekday: "short" }), chats: count };
+      })
+    );
+
+    res.json(chatCounts);
+  } catch (err) {
+    console.error("Error fetching chat stats:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
 // ----------------- CONTENT -----------------
 
 // Get all content
