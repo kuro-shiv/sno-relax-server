@@ -1,4 +1,3 @@
-// routes/adminRoutes.js
 const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
@@ -25,6 +24,32 @@ router.get("/users/:id", async (req, res) => {
     res.json(user);
   } catch (err) {
     console.error("Error fetching user:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// ✅ Update user (Ban/Unban or Edit Info)
+router.put("/users/:id", async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+    });
+    if (!user) return res.status(404).json({ error: "User not found" });
+    res.json({ message: "User updated successfully", user });
+  } catch (err) {
+    console.error("Error updating user:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// ✅ Delete user
+router.delete("/users/:id", async (req, res) => {
+  try {
+    const user = await User.findByIdAndDelete(req.params.id);
+    if (!user) return res.status(404).json({ error: "User not found" });
+    res.json({ message: "User deleted successfully" });
+  } catch (err) {
+    console.error("Error deleting user:", err);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
