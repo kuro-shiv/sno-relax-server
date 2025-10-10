@@ -121,6 +121,23 @@ router.delete("/community/:id", async (req, res) => {
   }
 });
 
+// Delete a group
+router.delete("/community/:groupId", (req, res) => {
+  const { groupId } = req.params;
+  const db = readCommunity();
+  const groupIndex = db.groups.findIndex((g) => g.id === groupId);
+
+  if (groupIndex === -1) return res.status(404).json({ error: "Group not found" });
+
+  db.groups.splice(groupIndex, 1); // remove group
+  // Also remove related messages
+  db.messages = db.messages.filter((m) => m.groupId !== groupId);
+
+  writeCommunity(db);
+  res.json({ ok: true, message: "Group deleted successfully" });
+});
+
+
 // ----------------- STATS -----------------
 
 router.get("/stats", async (req, res) => {
