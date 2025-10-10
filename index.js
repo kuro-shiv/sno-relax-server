@@ -16,12 +16,15 @@ const moodRoutes = require("./routes/moodRoutes");
 const chatRoutes = require("./routes/chatbotRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 
+// Import community helpers for Socket.IO
+const { readCommunity, writeCommunity } = require("./routes/communityRoutes");
+
 const app = express();
 
 // -------------------- CORS --------------------
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(",")
-  : ["*"]; // fallback for all
+  : ["*"];
 
 app.use(
   cors({
@@ -50,31 +53,12 @@ app.get("/", (req, res) => {
   res.send("✅ SnoRelax Backend is running. Use /api/... endpoints.");
 });
 
-// -------------------- Location Proxy --------------------
-app.post("/api/location", async (req, res) => {
-  const { latitude, longitude } = req.body;
-  if (!latitude || !longitude) return res.json({ city: "NaN" });
-
-  try {
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
-    );
-    const data = await response.json();
-    const city =
-      data.address?.city || data.address?.town || data.address?.village || "NaN";
-    res.json({ city });
-  } catch (err) {
-    console.error("🌍 Nominatim fetch failed:", err);
-    res.json({ city: "NaN" });
-  }
-});
-
 // -------------------- Mount Routes --------------------
 app.use("/api/auth", authRoutes);
 app.use("/api/community", communityRoutes);
 app.use("/api/moods", moodRoutes);
 app.use("/api/chat", chatRoutes);
-app.use("/api/admin", adminRoutes); // ✅ Admin APIs
+app.use("/api/admin", adminRoutes);
 
 // -------------------- 404 Handler --------------------
 app.use((req, res) => res.status(404).json({ error: "Endpoint not found" }));
@@ -85,8 +69,38 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message || "Internal Server Error" });
 });
 
-// -------------------- Server Start --------------------
+// -------------------- Socket.IO --------------------
+const http = require("http");
+const { Server } = require("socket.io");
+
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: process.env.ALLOWED_ORIGINS?.split(",") || "*",
+    credentials: true,
+  },
+});
+
+io.on("connection", (socket) => {
+  console.log("🔌 New client connected:", socket.id);
+
+  socket.on("joinGroup", (groupId) => socket.join(groupId));
+  socket.on("leaveGroup", (groupId) => socket.leave(groupId));
+
+  socket.on("sendMessage", ({ groupId, message }) => {
+    // Broadcast to everyone in the group except sender
+    socket.to(groupId).emit("newMessage", message);
+
+    // Save message to backend file
+    const db = readCommunity();
+    if (!db.messages) db.messages = [];
+    db.messages.push(message);
+    writeCommunity(db);
+  });
+
+  socket.on("disconnect", () => console.log("❌ Client disconnected:", socket.id));
+});
+
+// -------------------- Start Server --------------------
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () =>
-  console.log(`🚀 SnoRelax server running on port ${PORT}`)
-);
+server.listen(PORT, () => console.log(`🚀 SnoRelax server running on port ${PORT}`));
