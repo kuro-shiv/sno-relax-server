@@ -3,6 +3,7 @@ const router = express.Router();
 const User = require("../models/User");
 const ChatHistory = require("../models/ChatHistory");
 const Content = require("../models/Content");
+const Community = require("../models/Community");
 
 // ----------------- USERS -----------------
 
@@ -67,6 +68,55 @@ router.get("/chats", async (req, res) => {
     res.json(chats);
   } catch (err) {
     console.error("Error fetching chats:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// ----------------- COMMUNITY -----------------
+
+// Get all community posts
+router.get("/community", async (req, res) => {
+  try {
+    const posts = await Community.find().sort({ createdAt: -1 });
+    res.json(posts);
+  } catch (err) {
+    console.error("Error fetching community posts:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// Get single community post by ID
+router.get("/community/:id", async (req, res) => {
+  try {
+    const post = await Community.findById(req.params.id);
+    if (!post) return res.status(404).json({ error: "Post not found" });
+    res.json(post);
+  } catch (err) {
+    console.error("Error fetching post:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// Update a community post (edit content, approve, or reject)
+router.put("/community/:id", async (req, res) => {
+  try {
+    const updatedPost = await Community.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!updatedPost) return res.status(404).json({ error: "Post not found" });
+    res.json({ message: "Post updated successfully", post: updatedPost });
+  } catch (err) {
+    console.error("Error updating post:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// Delete a community post
+router.delete("/community/:id", async (req, res) => {
+  try {
+    const deletedPost = await Community.findByIdAndDelete(req.params.id);
+    if (!deletedPost) return res.status(404).json({ error: "Post not found" });
+    res.json({ message: "Post deleted successfully" });
+  } catch (err) {
+    console.error("Error deleting post:", err);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
