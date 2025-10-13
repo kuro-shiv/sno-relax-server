@@ -4,10 +4,22 @@ const User = require("../models/User");
 const ChatHistory = require("../models/ChatHistory");
 const Content = require("../models/Content");
 const Community = require("../models/Community");
+const fs = require("fs");
+const path = require("path");
+
+// Simple helpers for community groups stored in a JSON file
+const COMMUNITY_FILE = path.join(__dirname, "..", "data", "communities.json");
+function readCommunity() {
+  if (!fs.existsSync(COMMUNITY_FILE)) return { groups: [], messages: [] };
+  return JSON.parse(fs.readFileSync(COMMUNITY_FILE, "utf8"));
+}
+function writeCommunity(data) {
+  fs.mkdirSync(path.dirname(COMMUNITY_FILE), { recursive: true });
+  fs.writeFileSync(COMMUNITY_FILE, JSON.stringify(data, null, 2));
+}
 
 // ----------------- USERS -----------------
 
-// Get all users
 router.get("/users", async (req, res) => {
   try {
     const users = await User.find().sort({ createdAt: -1 });
@@ -18,7 +30,6 @@ router.get("/users", async (req, res) => {
   }
 });
 
-// Get single user by ID
 router.get("/users/:id", async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
@@ -30,12 +41,9 @@ router.get("/users/:id", async (req, res) => {
   }
 });
 
-// ✅ Update user (Ban/Unban or Edit Info)
 router.put("/users/:id", async (req, res) => {
   try {
-    const user = await User.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-    });
+    const user = await User.findByIdAndUpdate(req.params.id, req.body, { new: true });
     if (!user) return res.status(404).json({ error: "User not found" });
     res.json({ message: "User updated successfully", user });
   } catch (err) {
@@ -44,7 +52,6 @@ router.put("/users/:id", async (req, res) => {
   }
 });
 
-// ✅ Delete user
 router.delete("/users/:id", async (req, res) => {
   try {
     const user = await User.findByIdAndDelete(req.params.id);
@@ -58,7 +65,6 @@ router.delete("/users/:id", async (req, res) => {
 
 // ----------------- CHATS -----------------
 
-// Get chat history (optionally filter by user)
 router.get("/chats", async (req, res) => {
   try {
     const { userId } = req.query;
@@ -74,7 +80,6 @@ router.get("/chats", async (req, res) => {
 
 // ----------------- COMMUNITY -----------------
 
-// Get all community posts
 router.get("/community", async (req, res) => {
   try {
     const posts = await Community.find().sort({ createdAt: -1 });
@@ -85,7 +90,6 @@ router.get("/community", async (req, res) => {
   }
 });
 
-// Get single community post by ID
 router.get("/community/:id", async (req, res) => {
   try {
     const post = await Community.findById(req.params.id);
@@ -97,7 +101,6 @@ router.get("/community/:id", async (req, res) => {
   }
 });
 
-// Update a community post (edit content, approve, or reject)
 router.put("/community/:id", async (req, res) => {
   try {
     const updatedPost = await Community.findByIdAndUpdate(req.params.id, req.body, { new: true });
@@ -109,7 +112,6 @@ router.put("/community/:id", async (req, res) => {
   }
 });
 
-// Delete a community post
 router.delete("/community/:id", async (req, res) => {
   try {
     const deletedPost = await Community.findByIdAndDelete(req.params.id);
@@ -121,22 +123,18 @@ router.delete("/community/:id", async (req, res) => {
   }
 });
 
-// Delete a group
-router.delete("/community/:groupId", (req, res) => {
+router.delete("/community/group/:groupId", (req, res) => {
   const { groupId } = req.params;
   const db = readCommunity();
   const groupIndex = db.groups.findIndex((g) => g.id === groupId);
 
   if (groupIndex === -1) return res.status(404).json({ error: "Group not found" });
 
-  db.groups.splice(groupIndex, 1); // remove group
-  // Also remove related messages
+  db.groups.splice(groupIndex, 1);
   db.messages = db.messages.filter((m) => m.groupId !== groupId);
-
   writeCommunity(db);
   res.json({ ok: true, message: "Group deleted successfully" });
 });
-
 
 // ----------------- STATS -----------------
 
@@ -144,18 +142,13 @@ router.get("/stats", async (req, res) => {
   try {
     const totalUsers = await User.countDocuments();
     const totalChats = await ChatHistory.countDocuments();
-
-    res.json({
-      totalUsers,
-      totalChats,
-    });
+    res.json({ totalUsers, totalChats });
   } catch (err) {
     console.error("Stats error:", err);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
-// ----------------- CHAT STATS (Last 7 Days) -----------------
 router.get("/stats/chats", async (req, res) => {
   try {
     const today = new Date();
@@ -169,9 +162,7 @@ router.get("/stats/chats", async (req, res) => {
       last7Days.map(async (day) => {
         const start = new Date(day.setHours(0, 0, 0, 0));
         const end = new Date(day.setHours(23, 59, 59, 999));
-        const count = await ChatHistory.countDocuments({
-          timestamp: { $gte: start, $lte: end },
-        });
+        const count = await ChatHistory.countDocuments({ timestamp: { $gte: start, $lte: end } });
         return { day: start.toLocaleDateString("en-US", { weekday: "short" }), chats: count };
       })
     );
@@ -185,7 +176,6 @@ router.get("/stats/chats", async (req, res) => {
 
 // ----------------- CONTENT -----------------
 
-// Get all content
 router.get("/content", async (req, res) => {
   try {
     const contents = await Content.find().sort({ createdAt: -1 });
@@ -196,7 +186,6 @@ router.get("/content", async (req, res) => {
   }
 });
 
-// Get single content by ID
 router.get("/content/:id", async (req, res) => {
   try {
     const content = await Content.findById(req.params.id);
@@ -208,13 +197,10 @@ router.get("/content/:id", async (req, res) => {
   }
 });
 
-// Create new content
 router.post("/content", async (req, res) => {
   try {
     const { title, description, type, mediaUrl } = req.body;
-    if (!title || !description || !type)
-      return res.status(400).json({ error: "Title, description, and type required" });
-
+    if (!title || !description || !type) return res.status(400).json({ error: "Title, description, and type required" });
     const newContent = await Content.create({ title, description, type, mediaUrl });
     res.json(newContent);
   } catch (err) {
@@ -223,7 +209,6 @@ router.post("/content", async (req, res) => {
   }
 });
 
-// Update content
 router.put("/content/:id", async (req, res) => {
   try {
     const updatedContent = await Content.findByIdAndUpdate(req.params.id, req.body, { new: true });
@@ -235,7 +220,6 @@ router.put("/content/:id", async (req, res) => {
   }
 });
 
-// Delete content
 router.delete("/content/:id", async (req, res) => {
   try {
     const deletedContent = await Content.findByIdAndDelete(req.params.id);
@@ -246,6 +230,5 @@ router.delete("/content/:id", async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
-
 
 module.exports = router;
