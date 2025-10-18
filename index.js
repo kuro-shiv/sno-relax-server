@@ -22,8 +22,11 @@ const { readCommunity, writeCommunity } = require("./routes/communityRoutes");
 const app = express();
 
 // -------------------- CORS --------------------
+// const allowedOrigins = process.env.ALLOWED_ORIGINS
+//   ? process.env.ALLOWED_ORIGINS.split(",")
+//   : ["*"];
 const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(",")
+  ?["*"]
   : ["*"];
 
 app.use(
