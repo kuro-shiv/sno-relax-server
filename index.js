@@ -25,9 +25,16 @@ const app = express();
 // const allowedOrigins = process.env.ALLOWED_ORIGINS
 //   ? process.env.ALLOWED_ORIGINS.split(",")
 //   : ["*"];
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ?["*"]
-  : ["*"];
+// const allowedOrigins = process.env.ALLOWED_ORIGINS
+//   ?["*"]
+//   : ["*"];
+
+
+const allowedOrigins = [
+  "https://sno-relax-client.vercel.app", // your Vercel frontend
+  "http://localhost:3000",                // for local testing
+];
+
 
 app.use(
   cors({
