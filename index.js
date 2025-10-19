@@ -130,11 +130,11 @@ const communityRoutes = require("./routes/communityRoutes");
 const moodRoutes = require("./routes/moodRoutes");
 const chatRoutes = require("./routes/chatbotRoutes");
 const adminRoutes = require("./routes/adminRoutes");
-const { readCommunity, writeCommunity } = require("./routes/communityRoutes");
 const translateRoutes = require("./routes/translateRoutes");
-app.use("/api/translate", translateRoutes);
+const { readCommunity, writeCommunity } = require("./routes/communityRoutes");
 
-const app = express();
+// -------------------- App Initialization --------------------
+const app = express(); // <--- initialize app first!
 
 // -------------------- CORS --------------------
 const allowedOrigins = [
@@ -146,9 +146,7 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Allow requests with no origin (like Postman, curl)
       if (!origin) return callback(null, true);
-
       if (allowedOrigins.some((allowed) => origin.startsWith(allowed))) {
         callback(null, true);
       } else {
@@ -191,6 +189,7 @@ app.use("/api/community", communityRoutes);
 app.use("/api/moods", moodRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/translate", translateRoutes); // <--- now works
 
 // -------------------- 404 Handler --------------------
 app.use((req, res) => res.status(404).json({ error: "Endpoint not found" }));
@@ -232,4 +231,6 @@ io.on("connection", (socket) => {
 
 // -------------------- Start Server --------------------
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => console.log(`🚀 SnoRelax server running on port ${PORT}`));
+server.listen(PORT, () =>
+  console.log(`🚀 SnoRelax server running on port ${PORT}`)
+);
