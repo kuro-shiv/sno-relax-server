@@ -1,11 +1,11 @@
 const mongoose = require("mongoose");
 
 const ChatHistorySchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, // link to user
-  userMessage: { type: String, required: true },
+  userId: { type: String, required: true },
+  userMessage: { type: String, required: true }, // translated English message
   botReply: { type: String, required: true },
-  timestamp: { type: Date, default: Date.now },
-  language: { type: String, default: "en" } // optional, saves user message language
+  language: { type: String, default: "en" },
+  createdAt: { type: Date, default: Date.now } // automatic timestamp
 });
 
 module.exports = mongoose.model("ChatHistory", ChatHistorySchema);

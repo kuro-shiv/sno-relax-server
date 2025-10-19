@@ -2,37 +2,42 @@ const express = require("express");
 const router = express.Router();
 const fetch = require("node-fetch");
 
-// LibreTranslate API
+// Free & public translation API
 const TRANSLATE_API = "https://libretranslate.com/translate";
 
 /**
  * POST /api/translate
- * Body: { text: string, source: string, target: string }
+ * Body: { text, from, to }
+ * Returns: { translated }
  */
 router.post("/", async (req, res) => {
-  const { text, source = "auto", target } = req.body;
-
-  if (!text || !target) {
-    return res.status(400).json({ error: "Text and target language are required" });
-  }
-
   try {
+    const { text, from = "auto", to = "en" } = req.body;
+
+    if (!text || !to)
+      return res.status(400).json({ error: "Missing required fields (text, to)" });
+
+    // Call translation API
     const response = await fetch(TRANSLATE_API, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ q: text, source, target }),
+      body: JSON.stringify({
+        q: text,
+        source: from,
+        target: to,
+        format: "text"
+      }),
     });
 
     const data = await response.json();
 
-    if (!data.translatedText) {
-      return res.status(500).json({ error: "Translation failed" });
-    }
+    // LibreTranslate returns "translatedText"
+    const translated = data.translatedText || text;
 
-    res.json({ translatedText: data.translatedText });
+    res.json({ translated });
   } catch (err) {
     console.error("Translation error:", err);
-    res.status(500).json({ error: "Translation service unavailable" });
+    res.status(500).json({ translated: req.body.text });
   }
 });
 
