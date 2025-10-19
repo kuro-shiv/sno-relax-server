@@ -1,53 +1,31 @@
-import sys, json, os
+# train_model.py
+import json
+import sys
 from datetime import datetime
-from pymongo import MongoClient
+import random
+import os
 
-# MongoDB connection
-MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
-client = MongoClient(MONGO_URI)
-db = client["snoRelaxDB"]
-moods_collection = db["moods"]
+# Paths
+DATA_FILE = "./data/training_data.json"  # file with chat intents/FAQ
+MODEL_FILE = "./models/chat_model.json"  # "trained" model output
 
-# Mood categories & keywords
-MOOD_KEYWORDS = {
-    "happy": ["happy", "good", "joy", "great", "excited", "amazing", "love"],
-    "sad": ["sad", "depressed", "down", "unhappy", "cry", "lonely"],
-    "angry": ["angry", "mad", "frustrated", "hate", "annoyed"],
-    "stressed": ["stressed", "overwhelmed", "pressure", "tired", "burnout"],
-    "anxiety": ["anxious", "nervous", "worried", "panic", "afraid", "fear"],
-    "emotional": ["emotional", "touchy", "sensitive", "tearful"]
-}
+# Load training data
+if not os.path.exists(DATA_FILE):
+    print("No training data found. Exiting.")
+    sys.exit(1)
 
-def detect_mood(message):
-    message_lower = message.lower()
-    for mood, keywords in MOOD_KEYWORDS.items():
-        for kw in keywords:
-            if kw in message_lower:
-                return mood
-    return "neutral"
+with open(DATA_FILE, "r", encoding="utf-8") as f:
+    training_data = json.load(f)
 
-# Load chat history
-history_file = "./chat_memory.json"
-history = []
-if os.path.exists(history_file):
-    with open(history_file, "r", encoding="utf-8") as f:
-        history = json.load(f)
+# Simulate training (pattern-based for now)
+trained_model = {}
+for item in training_data.get("intents", []):
+    for pattern in item.get("patterns", []):
+        trained_model[pattern.lower()] = random.choice(item.get("responses", ["Hmm..."]))
 
-# Insert moods into DB
-for conv in history:
-    user_msg = conv["user"]
-    timestamp = conv.get("timestamp", datetime.now().isoformat())
+# Save "trained model"
+os.makedirs(os.path.dirname(MODEL_FILE), exist_ok=True)
+with open(MODEL_FILE, "w", encoding="utf-8") as f:
+    json.dump(trained_model, f, ensure_ascii=False, indent=2)
 
-    # Check if already in DB
-    if moods_collection.find_one({"userMessage": user_msg}):
-        continue
-
-    mood = detect_mood(user_msg)
-    moods_collection.insert_one({
-        "userId": conv.get("userId", "guest"),
-        "userMessage": user_msg,
-        "mood": mood,
-        "timestamp": timestamp
-    })
-
-print(f"✅ Processed {len(history)} messages, moods saved to DB")
+print(f"✅ Training completed at {datetime.now().isoformat()}. Model saved to {MODEL_FILE}")
