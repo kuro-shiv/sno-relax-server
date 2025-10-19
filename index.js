@@ -131,6 +131,8 @@ const moodRoutes = require("./routes/moodRoutes");
 const chatRoutes = require("./routes/chatbotRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const { readCommunity, writeCommunity } = require("./routes/communityRoutes");
+const translateRoutes = require("./routes/translateRoutes");
+app.use("/api/translate", translateRoutes);
 
 const app = express();
 
