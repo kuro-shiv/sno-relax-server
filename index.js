@@ -141,7 +141,8 @@ const app = express();
 
 // -------------------- CORS --------------------
 const allowedOrigins = [
-  "https://sno-relax-client.vercel.app", // ✅ Production frontend (Vercel)
+  "https://sno-relax-client.vercel.app",
+   "https://sno-relax-admin.vercel.app",                                             // ✅ Production frontend (Vercel)
   "http://localhost:3000",               // ✅ Local testing
 ];
 
