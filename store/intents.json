@@ -1,0 +1,65 @@
+{
+  "intents": [
+    {
+      "tag": "greeting",
+      "patterns": ["Hi", "Hello", "Hey", "Good morning", "Good evening", "Howdy"],
+      "responses": ["Hello!", "Hi there!", "Hey! How’s it going?", "Greetings!"]
+    },
+    {
+      "tag": "goodbye",
+      "patterns": ["Bye", "See you", "Goodbye", "Catch you later", "Take care"],
+      "responses": ["Goodbye!", "See you later!", "Take care!", "Bye-bye!"]
+    },
+    {
+      "tag": "thanks",
+      "patterns": ["Thanks", "Thank you", "Much appreciated", "Thanks a lot", "Thanks a ton"],
+      "responses": ["You're welcome!", "No problem!", "Glad to help!", "Anytime!"]
+    },
+    {
+      "tag": "happy",
+      "patterns": ["I am happy", "Feeling great", "I am good", "I feel awesome", "Feeling happy"],
+      "responses": ["That's wonderful!", "I’m glad to hear that!", "Keep smiling!"]
+    },
+    {
+      "tag": "sad",
+      "patterns": ["I am sad", "Feeling down", "I feel bad", "I am upset", "Feeling unhappy"],
+      "responses": ["I’m here for you.", "It’s okay to feel sad sometimes.", "Take a deep breath, you’ll feel better."]
+    },
+    {
+      "tag": "stress",
+      "patterns": ["I am stressed", "Feeling overwhelmed", "I am anxious", "I feel tense", "Feeling stressed"],
+      "responses": ["Try to take a break and relax.", "Deep breathing can help reduce stress.", "Remember to take care of yourself."]
+    },
+    {
+      "tag": "help",
+      "patterns": ["I need help", "Can you assist me?", "I need support", "Can you help me?", "I need guidance"],
+      "responses": ["How can I assist you?", "What do you need help with?", "I’m here to support you."]
+    },
+    {
+      "tag": "mood_tracking",
+      "patterns": ["Track my mood", "Log my feelings", "Record my emotions", "Mood journal", "Mood diary"],
+      "responses": ["Sure! How are you feeling today?", "Let’s log your mood. How do you feel?", "I can help you track your emotions. How are you doing?"]
+    },
+    {
+      "tag": "community",
+      "patterns": ["Find community", "Join group", "Support group", "Community help", "Connect with others"],
+      "responses": ["I can help you find a support group.", "Let’s connect you with a community.", "There are many groups you can join for support."]
+    },
+    {
+      "tag": "chat",
+      "patterns": ["Chat with me", "Talk to me", "I want to chat", "Have a conversation", "Let's talk"],
+      "responses": ["I’m here to chat with you!", "What would you like to talk about?", "Let’s have a conversation."]
+    },
+    {
+      "tag": "self_care",
+      "patterns": ["Self-care tips", "How to relax", "Stress relief", "Relaxation techniques", "Self-care advice"],
+      "responses": ["Taking a walk can help clear your mind.", "Listening to music can be very relaxing.", "Try some deep breathing exercises."]
+    },
+    {
+      "tag": "unknown",
+      "patterns": [],
+      "responses": ["I'm not sure I understand. Can you please rephrase?", "Sorry, I didn't get that. Could you try again?", "I'm here to help! Could you clarify your request?"]
+    }
+
+  ]
+}

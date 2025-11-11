@@ -1,0 +1,38 @@
+{
+  "name": "sno-relax-server",
+  "version": "1.0.0",
+  "description": "Backend server for SnoRelax app with chat, community, and mood tracking features.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "lint": "eslint .",
+    "test": "echo \"No tests defined yet\" && exit 0"
+  },
+  "dependencies": {
+    "@google-cloud/translate": "^9.2.1",
+    "cohere-ai": "^7.19.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
+    "googleapis": "^159.0.0",
+    "mongoose": "^8.18.1",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "eslint": "^8.46.0",
+    "nodemon": "^3.1.10"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "backend",
+    "express",
+    "mongoose",
+    "chatbot",
+    "snoRelax"
+  ],
+  "author": "Shivam Kumar Dubey",
+  "license": "AKTU"
+}

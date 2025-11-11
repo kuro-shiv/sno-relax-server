@@ -1,0 +1,32 @@
+[
+  {
+    "userId": "SD-09-2025-LUC-3aaab84",
+    "firstName": "Shivam ",
+    "lastName": "Dubey",
+    "email": "dubeysk@gmail.com",
+    "phone": "8299142475",
+    "city": "Lucknow",
+    "latitude": 26.8632064,
+    "longitude": 81.0123264
+  },
+  {
+    "userId": "SD-09-2025-LUC-3aaab84",
+    "firstName": "Shivam",
+    "lastName": "Dubey",
+    "email": "dubeysk@gmail.com",
+    "phone": "8299142475",
+    "city": "Lucknow",
+    "latitude": 26.7812864,
+    "longitude": 80.9566208
+  },
+  {
+    "userId": "AA-09-2025-LUC-03f9e14",
+    "firstName": "asdas",
+    "lastName": "asdas",
+    "email": "asdasd@gmail.com",
+    "phone": "8299142475",
+    "city": "Lucknow",
+    "latitude": 26.7812864,
+    "longitude": 80.9566208
+  }
+]

@@ -1,0 +1,19 @@
+# Core ML / DL
+tensorflow==2.20.0
+keras==3.5.0
+
+# NLP
+nltk==3.9.1
+numpy==1.26.4
+
+# Text-to-speech
+pyttsx3==2.98
+
+# Web framework
+flask==3.0.3
+
+# API + DB
+cohere==5.5.8
+requests==2.32.3
+pymongo==4.10.1
+psycopg2==2.9.9
