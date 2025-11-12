@@ -1,10 +1,19 @@
 const express = require("express");
 const router = express.Router();
 const fetch = require("node-fetch");
-const { spawn } = require("child_process");
+const cohere = require("cohere-ai");
 const ChatHistory = require("../models/ChatHistory");
 
 const TRANSLATE_API = "https://libretranslate.com/translate";
+
+// initialize Cohere if API key present
+if (process.env.COHERE_API_KEY) {
+  try {
+    cohere.init(process.env.COHERE_API_KEY);
+  } catch (e) {
+    console.warn("Cohere init warning:", e.message || e);
+  }
+}
 
 router.post("/", async (req, res) => {
   const { userId, message, lang = "auto" } = req.body;
@@ -23,48 +32,52 @@ router.post("/", async (req, res) => {
       translatedText = data.translatedText || message;
     }
 
-    // -------- Fetch ALL previous chat history --------
+    // -------- Fetch previous chat history --------
     const previousChats = await ChatHistory.find({ userId }).sort({ createdAt: 1 });
 
-    // Combine full context
-    let context = previousChats
+    // Build prompt from history + current message
+    let prompt = previousChats
       .map(chat => `User: ${chat.userMessage}\nBot: ${chat.botReply}`)
       .join("\n");
-    context += `\nUser: ${translatedText}\nBot: `;
+    if (prompt && prompt.length) prompt += "\n";
+    prompt += `User: ${translatedText}\nBot:`;
 
-    // -------- Python chatbot --------
+    // -------- Use Cohere to generate reply (fallback to canned reply if no API key) --------
     let botReply = "";
-    let pythonError = false;
-
-    const pythonScript = spawn("python3", ["./models/chat_model.py"]);
-    pythonScript.stdout.on("data", (data) => (botReply += data.toString()));
-    pythonScript.stderr.on("data", (err) => {
-      console.error("Python error:", err.toString());
-      pythonError = true;
-    });
-
-    pythonScript.on("close", async () => {
-      botReply = botReply.trim();
-      if (!botReply || pythonError) botReply = "I'm still learning. Could you rephrase or ask another way?";
-
-      // -------- Store current chat --------
+    if (process.env.COHERE_API_KEY) {
       try {
-        await ChatHistory.create({
-          userId,
-          userMessage: message,
-          botReply,
-          language: lang
+        const response = await cohere.generate({
+          model: "xlarge",
+          prompt,
+          max_tokens: 150,
+          temperature: 0.7,
+          k: 0,
+          stop_sequences: ["\nUser:", "\nBot:"]
         });
+        botReply = (response && response.body && response.body.generations && response.body.generations[0].text) || "";
+        botReply = botReply.trim();
       } catch (err) {
-        console.error("Failed to store chat history:", err);
+        console.error("Cohere generate error:", err);
+        botReply = "I'm still learning. Could you rephrase or ask another way?";
       }
+    } else {
+      // No Cohere key — return a helpful placeholder reply
+      botReply = "(Cohere API key not configured) Hi — this is a placeholder bot. Install COHERE_API_KEY to enable the real bot.";
+    }
 
-      res.json({ sender: "bot", text: botReply });
-    });
+    // -------- Store current chat --------
+    try {
+      await ChatHistory.create({
+        userId,
+        userMessage: message,
+        botReply,
+        language: lang
+      });
+    } catch (err) {
+      console.error("Failed to store chat history:", err);
+    }
 
-    pythonScript.stdin.write(context + "\n");
-    pythonScript.stdin.end();
-
+    res.json({ sender: "bot", text: botReply });
   } catch (err) {
     console.error("Chat error:", err);
     res.status(500).json({ sender: "bot", text: "⚠️ Sorry, bot unavailable." });
