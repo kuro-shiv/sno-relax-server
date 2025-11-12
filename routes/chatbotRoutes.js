@@ -2,20 +2,80 @@
 const express = require("express");
 const router = express.Router();
 const fetch = require("node-fetch");
-const cohere = require("cohere-ai");
 const ChatHistory = require("../models/ChatHistory");
 const User = require("../models/User");
 
 const TRANSLATE_API = "https://libretranslate.com/translate";
 const HF_API_KEY = process.env.HF_API_KEY;
+const { spawnSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+const TRAINING_FILE = path.join(__dirname, '..', 'training_data.json');
 
-// initialize Cohere if API key present
-if (process.env.COHERE_API_KEY) {
+function saveTrainingEntry(entry) {
   try {
-    cohere.init(process.env.COHERE_API_KEY);
-  } catch (e) {
-    console.warn("Cohere init warning:", e.message || e);
+    let arr = [];
+    if (fs.existsSync(TRAINING_FILE)) {
+      const raw = fs.readFileSync(TRAINING_FILE, 'utf8');
+      arr = raw ? JSON.parse(raw) : [];
+    }
+    arr.push(entry);
+    fs.writeFileSync(TRAINING_FILE, JSON.stringify(arr, null, 2));
+  } catch (err) {
+    console.error('Failed to save training entry:', err);
   }
+}
+
+async function tryPythonChatbot(message) {
+  const script = path.join(__dirname, '..', 'chatbot.py');
+  try {
+    // try python then python3
+    for (const cmd of ['python', 'python3']) {
+      try {
+        const res = spawnSync(cmd, [script], { input: message, encoding: 'utf8', timeout: 3000 });
+        if (res.error) {
+          // try next
+          continue;
+        }
+        if (res.status === 0 && res.stdout) {
+          return res.stdout.trim();
+        }
+      } catch (e) {
+        continue;
+      }
+    }
+  } catch (err) {
+    // ignore
+  }
+  return null;
+}
+
+// We'll call Cohere's REST API directly (avoids SDK version issues)
+const COHERE_API_KEY = process.env.COHERE_API_KEY;
+async function callCohereGenerate(prompt) {
+  if (!COHERE_API_KEY) throw new Error('Cohere API key not configured');
+  const url = 'https://api.cohere.ai/v1/generate';
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${COHERE_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: 'xlarge',
+      prompt,
+      max_tokens: 150,
+      temperature: 0.7,
+      stop_sequences: ['\nUser:', '\nBot:'],
+    }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Cohere generate failed: ${res.status} ${text}`);
+  }
+  const data = await res.json();
+  if (data && data.generations && data.generations[0] && data.generations[0].text) return data.generations[0].text.trim();
+  return '';
 }
 
 
@@ -55,47 +115,58 @@ router.post("/", async (req, res) => {
     if (prompt && prompt.length) prompt += "\n";
     prompt += `User: ${translatedText}\nBot:`;
 
-    // -------- Use Cohere to generate reply, fallback to Hugging Face if no Cohere --------
+    // -------- Try python chatbot first, then Cohere, then Hugging Face --------
     let botReply = "";
-    if (process.env.COHERE_API_KEY) {
-      try {
-        const response = await cohere.generate({
-          model: "xlarge",
-          prompt,
-          max_tokens: 150,
-          temperature: 0.7,
-          k: 0,
-          stop_sequences: ["\nUser:", "\nBot:"]
-        });
-        botReply = (response && response.body && response.body.generations && response.body.generations[0].text) || "";
-        botReply = botReply.trim();
-      } catch (err) {
-        console.error("Cohere generate error:", err);
-        botReply = "I'm still learning. Could you rephrase or ask another way?";
+    let source = 'none';
+
+    // try python chatbot
+    try {
+      const pyReply = await tryPythonChatbot(translatedText);
+      if (pyReply) {
+        botReply = pyReply;
+        source = 'python';
       }
-    } else if (HF_API_KEY) {
-      // Hugging Face fallback
-      try {
-        const hfRes = await fetch("https://api-inference.huggingface.co/models/facebook/blenderbot-3B", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${HF_API_KEY}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ inputs: translatedText })
-        });
-        const hfData = await hfRes.json();
-        botReply = hfData.generated_text || "[No reply from Hugging Face]";
-      } catch (err) {
-        console.error("Hugging Face error:", err);
-        botReply = "Bot unavailable. Please try again later.";
-      }
-    } else {
-      // No Cohere or Hugging Face key — return a helpful placeholder reply
-      botReply = "(No bot API key configured) Hi — this is a placeholder bot. Install COHERE_API_KEY or HF_API_KEY to enable the real bot.";
+    } catch (e) {
+      console.warn('Python chatbot check failed:', e.message || e);
     }
 
-    // -------- Store current chat --------
+    if (!botReply) {
+      if (process.env.COHERE_API_KEY) {
+        try {
+          botReply = await callCohereGenerate(prompt);
+          source = 'cohere';
+        } catch (err) {
+          console.error("Cohere generate error:", err);
+          botReply = "I'm still learning. Could you rephrase or ask another way?";
+          source = 'cohere-error';
+        }
+      } else if (HF_API_KEY) {
+        // Hugging Face fallback
+        try {
+          const hfRes = await fetch("https://api-inference.huggingface.co/models/facebook/blenderbot-3B", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${HF_API_KEY}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ inputs: translatedText })
+          });
+          const hfData = await hfRes.json();
+          botReply = hfData.generated_text || "[No reply from Hugging Face]";
+          source = 'huggingface';
+        } catch (err) {
+          console.error("Hugging Face error:", err);
+          botReply = "Bot unavailable. Please try again later.";
+          source = 'huggingface-error';
+        }
+      } else {
+        // No Cohere or Hugging Face key — return a helpful placeholder reply
+        botReply = "(No bot API key configured) Hi — this is a placeholder bot. Install COHERE_API_KEY or HF_API_KEY to enable the real bot.";
+        source = 'placeholder';
+      }
+    }
+
+    // -------- Store current chat and training data --------
     try {
       await ChatHistory.create({
         userId,
@@ -105,6 +176,13 @@ router.post("/", async (req, res) => {
       });
     } catch (err) {
       console.error("Failed to store chat history:", err);
+    }
+
+    // save to training file (append)
+    try {
+      saveTrainingEntry({ userId, userMessage: message, botReply, language: lang, source, timestamp: new Date().toISOString() });
+    } catch (e) {
+      console.error('Failed to save training data:', e);
     }
 
     res.json({ sender: "bot", text: botReply, role: userRole });
