@@ -15,7 +15,7 @@ router.post("/:userId", async (req, res) => {
     const entry = await Mood.create({
       userId,
       mood,
-      date: new Date(), // ensures consistent date entry
+      date: new Date(),
     });
 
     return res.status(201).json({ ok: true, entry });
@@ -39,7 +39,7 @@ router.get("/:userId", async (req, res) => {
   }
 });
 
-// ✅ Delete all moods for a user (debug/admin)
+// ✅ Delete all moods for a user (optional admin)
 router.delete("/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
