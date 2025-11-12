@@ -1,10 +1,13 @@
+
 const express = require("express");
 const router = express.Router();
 const fetch = require("node-fetch");
 const cohere = require("cohere-ai");
 const ChatHistory = require("../models/ChatHistory");
+const User = require("../models/User");
 
 const TRANSLATE_API = "https://libretranslate.com/translate";
+const HF_API_KEY = process.env.HF_API_KEY;
 
 // initialize Cohere if API key present
 if (process.env.COHERE_API_KEY) {
@@ -15,11 +18,21 @@ if (process.env.COHERE_API_KEY) {
   }
 }
 
+
 router.post("/", async (req, res) => {
   const { userId, message, lang = "auto" } = req.body;
   if (!message || !userId) return res.status(400).json({ error: "Message and userId required" });
 
   try {
+    // -------- Check user role --------
+    let userRole = "user";
+    try {
+      const user = await User.findOne({ $or: [{ userId }, { _id: userId }] });
+      if (user && user.role) userRole = user.role;
+    } catch (err) {
+      console.warn("User role check failed:", err);
+    }
+
     // -------- Translate to English if needed --------
     let translatedText = message;
     if (lang !== "en" && lang !== "auto") {
@@ -42,7 +55,7 @@ router.post("/", async (req, res) => {
     if (prompt && prompt.length) prompt += "\n";
     prompt += `User: ${translatedText}\nBot:`;
 
-    // -------- Use Cohere to generate reply (fallback to canned reply if no API key) --------
+    // -------- Use Cohere to generate reply, fallback to Hugging Face if no Cohere --------
     let botReply = "";
     if (process.env.COHERE_API_KEY) {
       try {
@@ -60,9 +73,26 @@ router.post("/", async (req, res) => {
         console.error("Cohere generate error:", err);
         botReply = "I'm still learning. Could you rephrase or ask another way?";
       }
+    } else if (HF_API_KEY) {
+      // Hugging Face fallback
+      try {
+        const hfRes = await fetch("https://api-inference.huggingface.co/models/facebook/blenderbot-3B", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${HF_API_KEY}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ inputs: translatedText })
+        });
+        const hfData = await hfRes.json();
+        botReply = hfData.generated_text || "[No reply from Hugging Face]";
+      } catch (err) {
+        console.error("Hugging Face error:", err);
+        botReply = "Bot unavailable. Please try again later.";
+      }
     } else {
-      // No Cohere key — return a helpful placeholder reply
-      botReply = "(Cohere API key not configured) Hi — this is a placeholder bot. Install COHERE_API_KEY to enable the real bot.";
+      // No Cohere or Hugging Face key — return a helpful placeholder reply
+      botReply = "(No bot API key configured) Hi — this is a placeholder bot. Install COHERE_API_KEY or HF_API_KEY to enable the real bot.";
     }
 
     // -------- Store current chat --------
@@ -77,7 +107,7 @@ router.post("/", async (req, res) => {
       console.error("Failed to store chat history:", err);
     }
 
-    res.json({ sender: "bot", text: botReply });
+    res.json({ sender: "bot", text: botReply, role: userRole });
   } catch (err) {
     console.error("Chat error:", err);
     res.status(500).json({ sender: "bot", text: "⚠️ Sorry, bot unavailable." });
