@@ -2,11 +2,11 @@ const mongoose = require("mongoose");
 
 const moodSchema = new mongoose.Schema({
   userId: {
-    type: String,
+    type: String, // or mongoose.Schema.Types.ObjectId if linked to User model
     required: true,
   },
   mood: {
-    type: Number, // e.g., 1–5 scale or mood index
+    type: Number, // value 0–5 (as sent from frontend)
     required: true,
   },
   date: {
