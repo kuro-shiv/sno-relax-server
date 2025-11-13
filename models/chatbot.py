@@ -119,10 +119,26 @@ def get_basic_reply(message):
 
 # Running directly
 if __name__ == "__main__":
-    print("Chatbot is ready. Type 'exit' to quit.")
-    while True:
-        user_input = input("You: ")
-        if user_input.lower() == 'exit':
-            break
-        reply = get_basic_reply(user_input)
-        print("Bot:", reply)
+    import sys
+    
+    # If stdin is piped, read from stdin and exit (for API calls)
+    if not sys.stdin.isatty():
+        try:
+            message = sys.stdin.read().strip()
+            if message:
+                reply = get_basic_reply(message)
+                print(reply)  # Print ONLY the reply (no labels)
+        except EOFError:
+            pass
+    else:
+        # Interactive mode for direct terminal use
+        print("Chatbot is ready. Type 'exit' to quit.")
+        while True:
+            try:
+                user_input = input("You: ")
+                if user_input.lower() == 'exit':
+                    break
+                reply = get_basic_reply(user_input)
+                print("Bot:", reply)
+            except EOFError:
+                break
