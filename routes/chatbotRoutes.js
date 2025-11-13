@@ -50,8 +50,8 @@ function triggerTrainingUpdate(trainingData) {
   }
 }
 
-// ---------------- Python Chatbot ----------------
-async function tryPythonChatbot(message) {
+// ✅ FIX: Python Chatbot with proper error checking
+function tryPythonChatbot(message) {
   // Try models/chatbot.py first (enhanced), then root chatbot.py (basic)
   const scripts = [
     path.join(__dirname, '..', 'models', 'chatbot.py'),  // enhanced model
@@ -60,15 +60,38 @@ async function tryPythonChatbot(message) {
 
   try {
     for (const script of scripts) {
-      for (const cmd of ['python', 'python3']) {
+      // Check if script exists first
+      if (!fs.existsSync(script)) {
+        console.warn(`⚠️ Script not found: ${script}`);
+        continue;
+      }
+
+      for (const cmd of ['python3', 'python']) {  // Try python3 first
         try {
-          const res = spawnSync(cmd, [script], { input: message, encoding: 'utf8', timeout: 3000 });
-          if (res.error) continue;
-          if (res.status === 0 && res.stdout) {
-            console.log(`✅ Bot reply from: ${script}`);
+          const res = spawnSync(cmd, [script], {
+            input: message,
+            encoding: 'utf8',
+            timeout: 3000,
+            stdio: ['pipe', 'pipe', 'pipe']  // Explicitly handle stdin/stdout/stderr
+          });
+
+          // Check for actual errors
+          if (res.error) {
+            console.warn(`⚠️ ${cmd} error for ${script}:`, res.error.message);
+            continue;
+          }
+
+          // Check status and stdout
+          if (res.status === 0 && res.stdout && res.stdout.trim()) {
+            console.log(`✅ Bot reply from: ${script} (${cmd})`);
             return res.stdout.trim();
+          } else if (res.status !== 0) {
+            console.warn(`⚠️ ${script} exited with code ${res.status}`);
+            if (res.stderr) console.warn(`stderr: ${res.stderr}`);
+            continue;
           }
         } catch (e) {
+          console.warn(`⚠️ Exception trying ${cmd} on ${script}:`, e.message);
           continue;
         }
       }
@@ -76,6 +99,8 @@ async function tryPythonChatbot(message) {
   } catch (err) {
     console.warn('Python chatbot error:', err.message);
   }
+  
+  console.warn('⚠️ No Python response, falling back to Cohere/HuggingFace');
   return null;
 }
 
@@ -191,21 +216,27 @@ router.post("/", async (req, res) => {
     let botReply = "";
     let source = "none";
 
-    // 1. Try Python bot
+    // 1. Try Python bot (synchronous now)
     try {
-      const pyReply = await tryPythonChatbot(translatedText);
+      const pyReply = tryPythonChatbot(translatedText);
       if (pyReply) {
         botReply = pyReply;
         source = "python";
+        console.log(`✅ Using Python bot response`);
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error("Python bot error:", e);
+    }
 
-    // 2. Try Cohere
+    // 2. Try Cohere if no Python response
     if (!botReply && COHERE_API_KEY) {
       try {
+        console.log("📡 Trying Cohere API...");
         botReply = await callCohereGenerate(prompt);
         source = "cohere";
+        console.log(`✅ Got Cohere response`);
       } catch (err) {
+        console.error("Cohere error:", err.message);
         botReply = "I'm still learning. Could you rephrase or ask in another way?";
         source = "cohere-error";
       }
@@ -214,6 +245,7 @@ router.post("/", async (req, res) => {
     // 3. HuggingFace fallback
     else if (!botReply && HF_API_KEY) {
       try {
+        console.log("🤗 Trying HuggingFace API...");
         const hfRes = await fetch("https://api-inference.huggingface.co/models/facebook/blenderbot-3B", {
           method: "POST",
           headers: {
@@ -226,17 +258,24 @@ router.post("/", async (req, res) => {
         const hfData = await hfRes.json();
         botReply = hfData.generated_text || "[No reply from Hugging Face]";
         source = "huggingface";
+        console.log(`✅ Got HuggingFace response`);
 
       } catch (err) {
+        console.error("HuggingFace error:", err.message);
         botReply = "Bot unavailable. Please try again later.";
         source = "huggingface-error";
       }
     }
 
-    // 4. No API key fallback
+    // 4. No API key fallback - use hardcoded friendly responses
     if (!botReply) {
-      botReply = "(No bot API key configured) Hi — this is a placeholder bot. Install COHERE_API_KEY or HF_API_KEY.";
+      botReply = (
+        "I don't have an API key configured right now, " +
+        "but I'm still learning! 🌱 " +
+        "What would you like to talk about?"
+      );
       source = "placeholder";
+      console.warn("⚠️ No API key - using placeholder response");
     }
 
     // -------- Save Chat History ----------
