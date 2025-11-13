@@ -104,12 +104,27 @@ function tryPythonChatbot(message) {
   return null;
 }
 
-// ---------------- Cohere API ----------------
+// ---------------- Cohere API - Enhanced with SnoBot personality ----------------
 const COHERE_API_KEY = process.env.COHERE_API_KEY;
 async function callCohereGenerate(prompt) {
   if (!COHERE_API_KEY) throw new Error('Cohere API key not configured');
 
   const url = 'https://api.cohere.ai/v1/generate';
+  
+  // Add SnoBot personality to prompt
+  const enhancedPrompt = `You are SnoBot, a compassionate mental health support assistant. You are helpful, empathetic, non-judgmental, and supportive.
+Your role is to:
+- Listen attentively and show genuine understanding
+- Provide emotional support and helpful suggestions
+- Suggest wellness activities and coping strategies
+- Encourage healthy habits and self-care
+- Be warm, friendly, and use casual language with emojis occasionally
+- Keep responses concise (2-3 sentences) and conversational
+- Recommend professional help when needed
+
+User: ${prompt}
+SnoBot:`;
+
   const res = await fetch(url, {
     method: 'POST',
     headers: {
@@ -118,10 +133,12 @@ async function callCohereGenerate(prompt) {
     },
     body: JSON.stringify({
       model: 'xlarge',
-      prompt,
-      max_tokens: 150,
-      temperature: 0.7,
-      stop_sequences: ['\nUser:', '\nBot:'],
+      prompt: enhancedPrompt,
+      max_tokens: 100,
+      temperature: 0.8,
+      frequency_penalty: 0.5,
+      presence_penalty: 0.1,
+      stop_sequences: ['\nUser:', '\n--', 'User says:'],
     }),
   });
 
@@ -131,7 +148,13 @@ async function callCohereGenerate(prompt) {
   }
 
   const data = await res.json();
-  return data?.generations?.[0]?.text?.trim() || "";
+  let response = data?.generations?.[0]?.text?.trim() || "";
+  
+  // Clean up response
+  response = response.replace(/^SnoBot:\s*/, '').trim();
+  response = response.split('\n')[0].trim(); // Take first line only
+  
+  return response || "I'm here to listen. How are you feeling today? 🌱";
 }
 
 // ---------------- GOOGLE FREE TRANSLATE ----------------
@@ -212,38 +235,39 @@ router.post("/", async (req, res) => {
     if (prompt.length) prompt += "\n";
     prompt += `User: ${translatedText}\nBot:`;
 
-    // -------- Bot Logic ----------
+    // -------- Bot Logic (Priority: Cohere > Python > HuggingFace) ----------
     let botReply = "";
     let source = "none";
 
-    // 1. Try Python bot (synchronous now)
-    try {
-      const pyReply = tryPythonChatbot(translatedText);
-      if (pyReply) {
-        botReply = pyReply;
-        source = "python";
-        console.log(`✅ Using Python bot response`);
-      }
-    } catch (e) {
-      console.error("Python bot error:", e);
-    }
-
-    // 2. Try Cohere if no Python response
-    if (!botReply && COHERE_API_KEY) {
+    // 1. Try Cohere FIRST (primary)
+    if (COHERE_API_KEY) {
       try {
-        console.log("📡 Trying Cohere API...");
-        botReply = await callCohereGenerate(prompt);
+        console.log("📡 Using Cohere API (SnoBot)...");
+        botReply = await callCohereGenerate(translatedText);
         source = "cohere";
-        console.log(`✅ Got Cohere response`);
+        console.log(`✅ Got Cohere response: ${botReply.substring(0, 50)}...`);
       } catch (err) {
         console.error("Cohere error:", err.message);
-        botReply = "I'm still learning. Could you rephrase or ask in another way?";
-        source = "cohere-error";
+        botReply = "";
+      }
+    }
+
+    // 2. Try Python bot if Cohere fails
+    if (!botReply) {
+      try {
+        const pyReply = tryPythonChatbot(translatedText);
+        if (pyReply) {
+          botReply = pyReply;
+          source = "python";
+          console.log(`✅ Using Python bot response`);
+        }
+      } catch (e) {
+        console.error("Python bot error:", e);
       }
     }
 
     // 3. HuggingFace fallback
-    else if (!botReply && HF_API_KEY) {
+    if (!botReply && HF_API_KEY) {
       try {
         console.log("🤗 Trying HuggingFace API...");
         const hfRes = await fetch("https://api-inference.huggingface.co/models/facebook/blenderbot-3B", {
@@ -262,20 +286,15 @@ router.post("/", async (req, res) => {
 
       } catch (err) {
         console.error("HuggingFace error:", err.message);
-        botReply = "Bot unavailable. Please try again later.";
-        source = "huggingface-error";
+        botReply = "";
       }
     }
 
-    // 4. No API key fallback - use hardcoded friendly responses
+    // 4. Default friendly response
     if (!botReply) {
-      botReply = (
-        "I don't have an API key configured right now, " +
-        "but I'm still learning! 🌱 " +
-        "What would you like to talk about?"
-      );
-      source = "placeholder";
-      console.warn("⚠️ No API key - using placeholder response");
+      botReply = "I'm here to listen and support you. 🌱 What's on your mind?";
+      source = "default";
+      console.warn("⚠️ Using default response");
     }
 
     // -------- Save Chat History ----------

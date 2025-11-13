@@ -10,6 +10,7 @@ const communityController = require("../controllers/communityController");
 const GroupMessage = require("../models/GroupMessage");
 const CommunityGroup = require("../models/CommunityGroup");
 const Announcement = require("../models/Announcement");
+const PrivateMessage = require("../models/PrivateMessage");
 
 // Simple helpers for community groups stored in a JSON file
 const COMMUNITY_FILE = path.join(__dirname, "..", "data", "communities.json");
@@ -79,6 +80,35 @@ router.get("/chats", async (req, res) => {
   } catch (err) {
     console.error("Error fetching chats:", err);
     res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// ----------------- PRIVATE MESSAGES (admin) -----------------
+// Fetch private messages for a user (admin view)
+router.get("/private-messages", async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) return res.status(400).json({ error: "userId required" });
+    const msgs = await PrivateMessage.find({ $or: [{ senderId: userId }, { receiverId: userId }] }).sort({ createdAt: 1 });
+    res.json({ ok: true, messages: msgs });
+  } catch (err) {
+    console.error("Error fetching private messages (admin):", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin can post a private message (reply to user)
+router.post("/private-message", async (req, res) => {
+  try {
+    const { senderId, receiverId, message } = req.body;
+    if (!senderId || !receiverId || !message) return res.status(400).json({ error: "senderId, receiverId and message required" });
+    const m = await PrivateMessage.create({ senderId, receiverId, message: String(message).trim() });
+    const io = req.app && req.app.get("io");
+    if (io && receiverId) io.to(`user_${receiverId}`).emit("receivePrivateMessage", m);
+    res.status(201).json({ ok: true, message: m });
+  } catch (err) {
+    console.error("Error creating private message (admin):", err);
+    res.status(500).json({ error: err.message });
   }
 });
 

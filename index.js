@@ -17,6 +17,8 @@ const moodRoutes = require("./routes/moodRoutes");
 const chatRoutes = require("./routes/chatbotRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const translateRoutes = require("./routes/translateRoutes");
+const aiRoutes = require("./routes/aiRoutes");
+const privateRoutes = require("./routes/privateRoutes");
 
 // ⭐ NEW — Chat History Route
 const chatHistoryRoutes = require("./routes/chatHistoryRoutes");
@@ -76,6 +78,12 @@ app.use("/api/chat/history", chatHistoryRoutes);
 
 // Your chatbot route (must be last to avoid shadowing)
 app.use("/api/chat", chatRoutes);
+
+// Public private messages (user <-> admin simple REST)
+app.use("/api/private", privateRoutes);
+
+// AI guide endpoints (summarize + recommend exercises)
+app.use("/api/ai", aiRoutes);
 
 app.use("/api/admin", adminRoutes);
 app.use("/api/translate", translateRoutes);
