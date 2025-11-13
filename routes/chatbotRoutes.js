@@ -5,7 +5,7 @@ const ChatHistory = require("../models/ChatHistory");
 const User = require("../models/User");
 
 const HF_API_KEY = process.env.HF_API_KEY;
-const { spawnSync } = require('child_process');
+const { spawnSync, spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const TRAINING_FILE = path.join(__dirname, '..', 'training_data.json');
@@ -29,21 +29,20 @@ function saveTrainingEntry(entry) {
   }
 }
 
-// ✅ NEW: Trigger training update in background (non-blocking)
+// ✅ NEW: Trigger training update in background (non-blocking with spawn)
 function triggerTrainingUpdate(trainingData) {
   try {
     const trainScript = path.join(__dirname, '..', 'models', 'train_bot.py');
     if (!fs.existsSync(trainScript)) return; // train_bot.py not available
     
-    // Run training in background (don't wait for result)
-    const trainInput = JSON.stringify(trainingData);
-    spawnSync('python3', [trainScript], {
-      input: trainInput,
-      encoding: 'utf8',
-      timeout: 5000,
-      detached: true,  // run in background
+    // Use spawn (not spawnSync) to run truly in background
+    const trainProcess = spawn('python3', [trainScript], {
+      detached: true,
       stdio: 'ignore'  // don't capture output
     });
+    
+    // Unref allows parent process to exit without waiting
+    trainProcess.unref();
     
     console.log('📚 Training update triggered (background)');
   } catch (err) {
@@ -179,7 +178,7 @@ router.post("/", async (req, res) => {
     }
 
     // -------- Fetch Chat History ----------
-    const previousChats = await ChatHistory.find({ userId }).sort({ createdAt: 1 });
+    const previousChats = await ChatHistory.find({ userId }).sort({ timestamp: 1 });
 
     let prompt = previousChats
       .map(chat => `User: ${chat.userMessage}\nBot: ${chat.botReply}`)

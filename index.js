@@ -71,11 +71,11 @@ app.use("/api/community", communityMongoRoutes);
 
 app.use("/api/moods", moodRoutes);
 
-// Your chatbot route
-app.use("/api/chat", chatRoutes);
-
-// ⭐ NEW — chat history route
+// ⭐ Mount chat history BEFORE chat to avoid route conflicts
 app.use("/api/chat/history", chatHistoryRoutes);
+
+// Your chatbot route (must be last to avoid shadowing)
+app.use("/api/chat", chatRoutes);
 
 app.use("/api/admin", adminRoutes);
 app.use("/api/translate", translateRoutes);
