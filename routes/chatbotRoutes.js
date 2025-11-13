@@ -74,24 +74,43 @@ async function callCohereGenerate(prompt) {
 
 // ---------------- GOOGLE FREE TRANSLATE ----------------
 
-// Detect language
+// Detect language (safe with fallback)
 async function detectLanguage(text) {
-  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=${encodeURIComponent(text)}`;
-  const res = await fetch(url);
-  const data = await res.json();
-  return data[2] || "en";
+  try {
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=${encodeURIComponent(text)}`;
+    const res = await fetch(url, { timeout: 5000 });
+    if (!res.ok) return "en";
+    const data = await res.json();
+    return (data && data[2]) || "en";
+  } catch (err) {
+    console.warn("Language detection failed, assuming en:", err.message);
+    return "en"; // default to english
+  }
 }
 
-// Translate text
+// Translate text (safe with fallback)
 async function translate(text, source, target) {
-  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${source}&tl=${target}&dt=t&q=${encodeURIComponent(text)}`;
-  const res = await fetch(url);
-  const data = await res.json();
+  try {
+    // Skip translation if same language or already en
+    if (source === target) return text;
+    
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${source}&tl=${target}&dt=t&q=${encodeURIComponent(text)}`;
+    const res = await fetch(url, { timeout: 5000 });
+    if (!res.ok) return text;
+    const data = await res.json();
 
-  let translated = "";
-  data[0].forEach(chunk => translated += chunk[0]);
+    if (!data || !Array.isArray(data[0])) return text;
+    
+    let translated = "";
+    data[0].forEach(chunk => {
+      if (chunk && chunk[0]) translated += chunk[0];
+    });
 
-  return translated;
+    return translated || text;
+  } catch (err) {
+    console.warn("Translation failed, returning original text:", err.message);
+    return text; // return original on error
+  }
 }
 
 // ---------------- ROUTE ----------------

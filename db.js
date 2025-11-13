@@ -9,10 +9,10 @@ const connectDB = async () => {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
-    console.log('MongoDB connected');
+    console.log('✅ MongoDB connected');
   } catch (err) {
-    console.error('MongoDB connection error:', err);
-    process.exit(1);
+    console.warn('⚠️ MongoDB connection error (server will run without persistence):', err.message);
+    // Don't exit — let server run in memory mode
   }
 };
 
