@@ -72,34 +72,26 @@ async function callCohereGenerate(prompt) {
   return data?.generations?.[0]?.text?.trim() || "";
 }
 
-// ---------------- Translation (No Key Needed) ----------------
+// ---------------- GOOGLE FREE TRANSLATE ----------------
 
 // Detect language
 async function detectLanguage(text) {
-  const res = await fetch("https://libretranslate.de/detect", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ q: text })
-  });
+  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=${encodeURIComponent(text)}`;
+  const res = await fetch(url);
   const data = await res.json();
-  return data[0]?.language || "en";
+  return data[2] || "en";
 }
 
 // Translate text
 async function translate(text, source, target) {
-  const res = await fetch("https://libretranslate.de/translate", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      q: text,
-      source,
-      target,
-      format: "text"
-    })
-  });
-
+  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${source}&tl=${target}&dt=t&q=${encodeURIComponent(text)}`;
+  const res = await fetch(url);
   const data = await res.json();
-  return data.translatedText || text;
+
+  let translated = "";
+  data[0].forEach(chunk => translated += chunk[0]);
+
+  return translated;
 }
 
 // ---------------- ROUTE ----------------
