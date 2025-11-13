@@ -18,6 +18,9 @@ const chatRoutes = require("./routes/chatbotRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const translateRoutes = require("./routes/translateRoutes");
 
+// ⭐ NEW — Chat History Route
+const chatHistoryRoutes = require("./routes/chatHistoryRoutes");
+
 const app = express();
 
 // -------------------- CORS --------------------
@@ -59,12 +62,21 @@ app.get("/", (req, res) => {
 
 // -------------------- Mount Routes --------------------
 app.use("/api/auth", authRoutes);
+
 // legacy file-backed community routes remain available under /api/community/legacy
 app.use("/api/community/legacy", communityRoutes);
+
 // mongo-backed community API (preferred)
 app.use("/api/community", communityMongoRoutes);
+
 app.use("/api/moods", moodRoutes);
+
+// Your chatbot route
 app.use("/api/chat", chatRoutes);
+
+// ⭐ NEW — chat history route
+app.use("/api/chat/history", chatHistoryRoutes);
+
 app.use("/api/admin", adminRoutes);
 app.use("/api/translate", translateRoutes);
 
@@ -98,6 +110,8 @@ try {
 
 // -------------------- Start Server --------------------
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => console.log(`🚀 SnoRelax server running on port ${PORT}`));
+server.listen(PORT, () =>
+  console.log(`🚀 SnoRelax server running on port ${PORT}`)
+);
 
 module.exports = app;
