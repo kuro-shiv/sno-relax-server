@@ -20,25 +20,63 @@ function saveTrainingEntry(entry) {
     }
     arr.push(entry);
     fs.writeFileSync(TRAINING_FILE, JSON.stringify(arr, null, 2));
+    
+    // ✅ Optionally trigger training script (spawn in background)
+    // This calls models/train_bot.py with the training data
+    triggerTrainingUpdate(arr);
   } catch (err) {
     console.error('Failed to save training entry:', err);
   }
 }
 
+// ✅ NEW: Trigger training update in background (non-blocking)
+function triggerTrainingUpdate(trainingData) {
+  try {
+    const trainScript = path.join(__dirname, '..', 'models', 'train_bot.py');
+    if (!fs.existsSync(trainScript)) return; // train_bot.py not available
+    
+    // Run training in background (don't wait for result)
+    const trainInput = JSON.stringify(trainingData);
+    spawnSync('python3', [trainScript], {
+      input: trainInput,
+      encoding: 'utf8',
+      timeout: 5000,
+      detached: true,  // run in background
+      stdio: 'ignore'  // don't capture output
+    });
+    
+    console.log('📚 Training update triggered (background)');
+  } catch (err) {
+    console.warn('Training trigger skipped:', err.message);
+  }
+}
+
 // ---------------- Python Chatbot ----------------
 async function tryPythonChatbot(message) {
-  const script = path.join(__dirname, '..', 'chatbot.py');
+  // Try models/chatbot.py first (enhanced), then root chatbot.py (basic)
+  const scripts = [
+    path.join(__dirname, '..', 'models', 'chatbot.py'),  // enhanced model
+    path.join(__dirname, '..', 'chatbot.py')              // fallback basic
+  ];
+
   try {
-    for (const cmd of ['python', 'python3']) {
-      try {
-        const res = spawnSync(cmd, [script], { input: message, encoding: 'utf8', timeout: 3000 });
-        if (res.error) continue;
-        if (res.status === 0 && res.stdout) return res.stdout.trim();
-      } catch (e) {
-        continue;
+    for (const script of scripts) {
+      for (const cmd of ['python', 'python3']) {
+        try {
+          const res = spawnSync(cmd, [script], { input: message, encoding: 'utf8', timeout: 3000 });
+          if (res.error) continue;
+          if (res.status === 0 && res.stdout) {
+            console.log(`✅ Bot reply from: ${script}`);
+            return res.stdout.trim();
+          }
+        } catch (e) {
+          continue;
+        }
       }
     }
-  } catch (err) {}
+  } catch (err) {
+    console.warn('Python chatbot error:', err.message);
+  }
   return null;
 }
 
