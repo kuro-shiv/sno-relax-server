@@ -11,6 +11,9 @@ const GroupMessage = require("../models/GroupMessage");
 const CommunityGroup = require("../models/CommunityGroup");
 const Announcement = require("../models/Announcement");
 const PrivateMessage = require("../models/PrivateMessage");
+const Report = require("../models/Report");
+const Setting = require("../models/Setting");
+const UserProfileChange = require("../models/UserProfileChange");
 
 // Simple helpers for community groups stored in a JSON file
 const COMMUNITY_FILE = path.join(__dirname, "..", "data", "communities.json");
@@ -233,6 +236,48 @@ router.get("/stats", async (req, res) => {
   }
 });
 
+// ----------------- SETTINGS (admin) -----------------
+// Get theme (or other settings) by key. Currently supports 'theme'.
+router.get("/settings/theme", async (req, res) => {
+  try {
+    const s = await Setting.findOne({ key: "theme" });
+    if (!s) return res.json({ ok: true, theme: null });
+    return res.json({ ok: true, theme: s.value });
+  } catch (err) {
+    console.error("Error fetching theme setting:", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// Update theme (admin)
+router.put("/settings/theme", async (req, res) => {
+  try {
+    const { theme } = req.body;
+    if (!theme) return res.status(400).json({ error: "theme required" });
+
+  // basic validation: allow only a small set of themes (remove 'therapist')
+  const allowed = ["light", "dark"];
+    if (!allowed.includes(theme)) return res.status(400).json({ error: "invalid theme" });
+
+    const s = await Setting.findOneAndUpdate(
+      { key: "theme" },
+      { value: theme },
+      { upsert: true, new: true }
+    );
+
+    // broadcast to connected clients (if socket available)
+    const io = req.app && req.app.get("io");
+    if (io) {
+      io.emit("themeChanged", theme);
+    }
+
+    return res.json({ ok: true, theme: s.value });
+  } catch (err) {
+    console.error("Error updating theme setting:", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 router.get("/stats/chats", async (req, res) => {
   try {
     const today = new Date();
@@ -312,6 +357,217 @@ router.delete("/content/:id", async (req, res) => {
   } catch (err) {
     console.error("Error deleting content:", err);
     res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// ----------------- REPORTS -----------------
+// list reports
+router.get('/reports', async (req, res) => {
+  try {
+    const reports = await Report.find().sort({ createdAt: -1 });
+    res.json({ ok: true, reports });
+  } catch (err) {
+    console.error('Error fetching reports:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// create a report
+router.post('/report', async (req, res) => {
+  try {
+    const { title, description, reportedBy, metadata } = req.body;
+    if (!title || !description) return res.status(400).json({ error: 'title and description required' });
+    const r = await Report.create({ title, description, reportedBy, metadata });
+    res.status(201).json({ ok: true, report: r });
+  } catch (err) {
+    console.error('Error creating report:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// delete a report
+router.delete('/report/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const d = await Report.findByIdAndDelete(id);
+    if (!d) return res.status(404).json({ error: 'Report not found' });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Error deleting report:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ----------------- RELATIONSHIPS / ANALYTICS -----------------
+// Return aggregated relationship data: groups vs users, chat counts per user,
+// frequent terms per user and overall top terms. This is designed for admin
+// dashboard consumption (tables + charts).
+router.get('/relationships/summary', async (req, res) => {
+  try {
+    // Groups with members
+    const groups = await CommunityGroup.find().lean();
+    const groupsUsers = groups.map(g => ({
+      groupId: g._id,
+      name: g.name,
+      memberCount: (g.members || []).length,
+      members: (g.members || []).map(m => ({ userId: m.userId, nickname: m.nickname }))
+    }));
+
+    // Message counts per user (group messages)
+    const groupAgg = await GroupMessage.aggregate([
+      { $group: { _id: "$senderId", count: { $sum: 1 } } }
+    ]);
+    const privateAgg = await PrivateMessage.aggregate([
+      { $group: { _id: "$senderId", count: { $sum: 1 } } }
+    ]);
+    const chatHistAgg = await ChatHistory.aggregate([
+      { $group: { _id: "$userId", count: { $sum: 1 } } }
+    ]);
+
+    // Merge counts by userId
+    const countsMap = new Map();
+    const addCounts = (arr, key) => {
+      arr.forEach(a => {
+        const id = String(a._id);
+        if (!countsMap.has(id)) countsMap.set(id, { userId: id, groupMessages: 0, privateMessages: 0, chatHistory: 0 });
+        countsMap.get(id)[key] = a.count;
+      });
+    };
+    addCounts(groupAgg, 'groupMessages');
+    addCounts(privateAgg, 'privateMessages');
+    addCounts(chatHistAgg, 'chatHistory');
+
+    // Enrich with user info for known users
+    const userIds = Array.from(countsMap.keys());
+    const users = await User.find({ userId: { $in: userIds } }).lean();
+    const userById = new Map(users.map(u => [u.userId, u]));
+    const userChatCounts = Array.from(countsMap.values()).map(c => {
+      const u = userById.get(c.userId) || {};
+      return {
+        userId: c.userId,
+        name: (u.firstName ? `${u.firstName} ${u.lastName}` : (u.communityNickname || u.userId)),
+        groupMessages: c.groupMessages || 0,
+        privateMessages: c.privateMessages || 0,
+        chatHistory: c.chatHistory || 0,
+        total: (c.groupMessages || 0) + (c.privateMessages || 0) + (c.chatHistory || 0)
+      };
+    });
+
+  // Frequent term extraction (naive): fetch all messages and compute term frequency per user/group
+  // Note: this may be heavy on large datasets; consider batching or an async job for very large DBs.
+  const recentGroupMsgs = await GroupMessage.find().sort({ createdAt: -1 }).lean();
+  const recentChatHist = await ChatHistory.find().sort({ timestamp: -1 }).lean();
+  const recentPrivate = await PrivateMessage.find().sort({ createdAt: -1 }).lean();
+
+    const tokenize = (text) => {
+      if (!text) return [];
+      return text
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .split(/\s+/)
+        .filter(Boolean)
+        .filter(t => t.length > 2);
+    };
+
+    const termCountsByUser = new Map();
+    const overall = new Map();
+
+    const ingest = (userId, text) => {
+      const tokens = tokenize(text);
+      if (!tokens.length) return;
+      if (!termCountsByUser.has(userId)) termCountsByUser.set(userId, {});
+      const m = termCountsByUser.get(userId);
+      tokens.forEach(t => {
+        m[t] = (m[t] || 0) + 1;
+        overall.set(t, (overall.get(t) || 0) + 1);
+      });
+    };
+
+    // Also collect per-group term counts and per-group message counts
+    const termCountsByGroup = new Map();
+    const groupMessageCounts = new Map();
+
+    recentGroupMsgs.forEach(m => {
+      const sid = String(m.senderId);
+      ingest(sid, m.message);
+
+      // per-group
+      const gid = String(m.groupId);
+      groupMessageCounts.set(gid, (groupMessageCounts.get(gid) || 0) + 1);
+      if (!termCountsByGroup.has(gid)) termCountsByGroup.set(gid, {});
+      const gm = termCountsByGroup.get(gid);
+      tokenize(m.message).forEach(t => gm[t] = (gm[t] || 0) + 1);
+    });
+
+    recentPrivate.forEach(m => ingest(String(m.senderId), m.message));
+    recentChatHist.forEach(m => ingest(String(m.userId), m.userMessage));
+
+    const frequentTermsByUser = [];
+    for (const [userId, map] of termCountsByUser.entries()) {
+      const items = Object.entries(map).sort((a,b) => b[1] - a[1]).slice(0,25).map(([term,count]) => ({ term, count }));
+      frequentTermsByUser.push({ userId, topTerms: items });
+    }
+
+    const topTermsOverall = Array.from(overall.entries()).sort((a,b)=>b[1]-a[1]).slice(0,100).map(([term,count])=>({ term, count }));
+
+    // Build per-group top terms and message counts
+    const topTermsByGroup = [];
+    for (const [gid, map] of termCountsByGroup.entries()) {
+      const items = Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,25).map(([term,count]) => ({ term, count }));
+      topTermsByGroup.push({ groupId: gid, topTerms: items, messageCount: groupMessageCounts.get(gid) || 0 });
+    }
+
+    // Build mapping of user -> groups they belong to
+    const userGroups = {};
+    groups.forEach(g => {
+      (g.members || []).forEach(m => {
+        if (!userGroups[m.userId]) userGroups[m.userId] = [];
+        userGroups[m.userId].push({ groupId: g._id, groupName: g.name });
+      });
+    });
+
+    return res.json({ ok: true, groupsUsers, userChatCounts, frequentTermsByUser, topTermsOverall, topTermsByGroup, userGroups });
+  } catch (err) {
+    console.error('Error computing relationships summary:', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// --------------- USER PROFILE CHANGES (Audit Log) ---------------
+// Get profile change history for a user or all users
+router.get('/profile-changes', async (req, res) => {
+  try {
+    const { userId, limit = 100, skip = 0 } = req.query;
+    let query = {};
+    if (userId) query.userId = userId;
+    const changes = await UserProfileChange.find(query).sort({ changedAt: -1 }).skip(parseInt(skip)).limit(parseInt(limit));
+    const total = await UserProfileChange.countDocuments(query);
+    res.json({ ok: true, changes, total, limit: parseInt(limit), skip: parseInt(skip) });
+  } catch (err) {
+    console.error('Error fetching profile changes:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Log a profile change (called by user service or admin endpoint)
+router.post('/profile-change', async (req, res) => {
+  try {
+    const { userId, fieldName, oldValue, newValue, changedBy = 'user' } = req.body;
+    if (!userId || !fieldName || newValue === undefined) {
+      return res.status(400).json({ error: 'userId, fieldName, newValue required' });
+    }
+    const change = await UserProfileChange.create({
+      userId,
+      fieldName,
+      oldValue: oldValue !== undefined ? oldValue : null,
+      newValue,
+      changedBy,
+      changedAt: new Date()
+    });
+    res.status(201).json({ ok: true, change });
+  } catch (err) {
+    console.error('Error logging profile change:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 

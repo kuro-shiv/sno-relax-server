@@ -7,6 +7,7 @@ const adminAuth = require("../middleware/adminAuth");
 router.get("/groups", community.getGroups);
 router.post("/group", community.createGroup); // Any user can create group
 router.delete("/group/:id", community.deleteGroup);
+router.put("/group/:id", community.updateGroup); // update group details (admin)
 
 // ==================== GROUP MEMBERS ====================
 router.post("/group/:groupId/join", community.joinGroup);
@@ -19,6 +20,7 @@ router.get("/group/:groupId/messages", community.getGroupMessages);
 router.post("/group/:groupId/message", community.postGroupMessage);
 router.delete("/message/:messageId", community.deleteMessage);
 router.put("/message/:messageId", community.editMessage);
+router.delete("/group/:groupId/messages", community.clearGroupMessages); // clear all messages in group (admin)
 
 // ==================== NICKNAMES ====================
 router.put("/user/:userId/nickname", community.updateNickname);

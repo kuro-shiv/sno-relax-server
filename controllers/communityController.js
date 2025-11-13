@@ -38,11 +38,10 @@ module.exports = {
         return res.status(400).json({ error: "Group name must be 3-50 characters" });
       }
 
-      // Verify user exists
+      // Try to resolve the creator user; if not found (e.g. admin created group outside of users table)
+      // allow creation but fall back to a sensible nickname.
       const user = await User.findOne({ userId: createdBy });
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
+      const creatorNickname = user ? (user.communityNickname || `${user.firstName || 'Admin'}`) : "Group Admin";
 
       const group = await CommunityGroup.create({
         name,
@@ -51,7 +50,7 @@ module.exports = {
         adminId: createdBy,
         members: [{
           userId: createdBy,
-          nickname: user.communityNickname || "Group Admin",
+          nickname: creatorNickname,
           joinedAt: new Date(),
         }],
         maxMembers,
@@ -85,6 +84,35 @@ module.exports = {
     } catch (err) {
       console.error("Error deleting group:", err);
       res.status(500).json({ error: "Failed to delete group" });
+    }
+  },
+
+  updateGroup: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { name, description, maxMembers, isActive } = req.body;
+      const group = await CommunityGroup.findById(id);
+      if (!group) return res.status(404).json({ error: 'Group not found' });
+      if (name) group.name = name;
+      if (description !== undefined) group.description = description;
+      if (maxMembers !== undefined) group.maxMembers = maxMembers;
+      if (isActive !== undefined) group.isActive = isActive;
+      await group.save();
+      res.json({ message: 'Group updated', group });
+    } catch (err) {
+      console.error('Error updating group:', err);
+      res.status(500).json({ error: 'Failed to update group' });
+    }
+  },
+
+  clearGroupMessages: async (req, res) => {
+    try {
+      const { groupId } = req.params;
+      await GroupMessage.deleteMany({ groupId });
+      res.json({ ok: true, message: 'Group messages cleared' });
+    } catch (err) {
+      console.error('Error clearing messages:', err);
+      res.status(500).json({ error: 'Failed to clear messages' });
     }
   },
 
