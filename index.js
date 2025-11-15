@@ -4,10 +4,56 @@ const cors = require("cors");
 require("dotenv").config();
 const http = require("http");
 const { Server } = require("socket.io");
+const crypto = require("crypto");
 
 // Database connection
 const connectDB = require("./db");
 connectDB();
+
+// ==================== IN-MEMORY FALLBACK STORE ====================
+global.communityStore = {
+  groups: [
+    {
+      _id: crypto.randomUUID(),
+      name: "Motivation",
+      description: "Daily motivational talks 💪",
+      createdBy: "HOST",
+      adminId: "HOST",
+      members: [{ userId: "HOST", nickname: "System Admin", joinedAt: new Date() }],
+      memberCount: 1,
+      isActive: true,
+      maxMembers: 50,
+      createdAt: new Date()
+    },
+    {
+      _id: crypto.randomUUID(),
+      name: "Mindfulness",
+      description: "Relax, meditate and share peace 🧘",
+      createdBy: "HOST",
+      adminId: "HOST",
+      members: [{ userId: "HOST", nickname: "System Admin", joinedAt: new Date() }],
+      memberCount: 1,
+      isActive: true,
+      maxMembers: 50,
+      createdAt: new Date()
+    },
+    {
+      _id: crypto.randomUUID(),
+      name: "Support",
+      description: "A safe place to talk and be heard 💙",
+      createdBy: "HOST",
+      adminId: "HOST",
+      members: [{ userId: "HOST", nickname: "System Admin", joinedAt: new Date() }],
+      memberCount: 1,
+      isActive: true,
+      maxMembers: 50,
+      createdAt: new Date()
+    }
+  ],
+  messages: []
+};
+
+console.log("💾 [Server] In-memory fallback store initialized with 3 default groups");
 
 // Routes
 const authRoutes = require("./routes/authRoutes");

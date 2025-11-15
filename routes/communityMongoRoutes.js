@@ -13,6 +13,7 @@ router.put("/group/:id", community.updateGroup); // update group details (admin)
 router.post("/group/:groupId/join", community.joinGroup);
 router.delete("/group/:groupId/leave", community.leaveGroup);
 router.get("/group/:groupId/members", community.getGroupMembers);
+router.delete("/group/:groupId/member/remove", community.removeMember);
 router.put("/group/:groupId/member/nickname", community.updateMemberNickname);
 
 // ==================== GROUP MESSAGES ====================

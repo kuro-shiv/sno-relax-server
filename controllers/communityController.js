@@ -9,20 +9,90 @@ module.exports = {
   
   getGroups: async (req, res) => {
     try {
-      const groups = await CommunityGroup.find({ isActive: true })
-        .select("name description createdBy adminId members isActive maxMembers createdAt")
-        .sort({ createdAt: -1 });
+      console.log("📢 [getGroups] Request received");
+      console.log("📢 [getGroups] CommunityGroup model:", CommunityGroup ? "✅ loaded" : "❌ not loaded");
       
-      // Return groups with member count
-      const groupsWithCount = groups.map(group => ({
-        ...group.toObject(),
-        memberCount: group.members.length,
-      }));
+      try {
+        // Try MongoDB first
+        const groups = await CommunityGroup.find({ isActive: true })
+          .select("name description createdBy adminId members isActive maxMembers createdAt")
+          .sort({ createdAt: -1 });
+        
+        console.log("📢 [getGroups] Found", groups.length, "groups in MongoDB");
+        
+        // If no groups exist, create default ones
+        if (groups.length === 0) {
+          console.log("📢 [getGroups] No active groups found. Creating default groups in MongoDB...");
+          const defaultGroups = [
+            {
+              name: "Motivation",
+              description: "Daily motivational talks 💪",
+              createdBy: "HOST",
+              adminId: "HOST",
+              members: [{ userId: "HOST", nickname: "System Admin", joinedAt: new Date() }],
+              isActive: true
+            },
+            {
+              name: "Mindfulness",
+              description: "Relax, meditate and share peace 🧘",
+              createdBy: "HOST",
+              adminId: "HOST",
+              members: [{ userId: "HOST", nickname: "System Admin", joinedAt: new Date() }],
+              isActive: true
+            },
+            {
+              name: "Support",
+              description: "A safe place to talk and be heard 💙",
+              createdBy: "HOST",
+              adminId: "HOST",
+              members: [{ userId: "HOST", nickname: "System Admin", joinedAt: new Date() }],
+              isActive: true
+            }
+          ];
+          
+          try {
+            const createdGroups = await CommunityGroup.insertMany(defaultGroups);
+            console.log("✅ [getGroups] Default groups created in MongoDB:", createdGroups.length);
+            
+            const groupsWithCount = createdGroups.map(group => ({
+              ...group.toObject(),
+              memberCount: group.members.length,
+            }));
+            
+            return res.json(groupsWithCount);
+          } catch (insertErr) {
+            console.error("❌ [getGroups] Error creating default groups in MongoDB:", insertErr.message);
+            // Fall through to use fallback
+          }
+        }
+        
+        // Return groups with member count
+        const groupsWithCount = groups.map(group => ({
+          ...group.toObject(),
+          memberCount: group.members.length,
+        }));
+        
+        console.log(`✅ [getGroups] Returning ${groupsWithCount.length} groups from MongoDB`);
+        return res.json(groupsWithCount);
+      } catch (mongoErr) {
+        console.warn("⚠️ [getGroups] MongoDB error:", mongoErr.message);
+        console.log("📢 [getGroups] Falling back to in-memory store...");
+      }
       
-      res.json(groupsWithCount);
+      // Fallback: Use in-memory store
+      if (global.communityStore && global.communityStore.groups) {
+        console.log(`✅ [getGroups] Returning ${global.communityStore.groups.length} groups from fallback store`);
+        return res.json(global.communityStore.groups);
+      }
+      
+      // If no fallback, return empty
+      console.warn("⚠️ [getGroups] No data source available, returning empty array");
+      res.json([]);
+      
     } catch (err) {
-      console.error("Error fetching groups:", err);
-      res.status(500).json({ error: "Failed to fetch groups" });
+      console.error("❌ [getGroups] Unexpected error:", err.message);
+      console.error("❌ [getGroups] Full error:", err);
+      res.status(500).json({ error: "Failed to fetch groups", details: err.message });
     }
   },
 
@@ -255,6 +325,40 @@ module.exports = {
     } catch (err) {
       console.error("Error updating nickname:", err);
       res.status(500).json({ error: "Failed to update nickname" });
+    }
+  },
+
+  removeMember: async (req, res) => {
+    try {
+      const { groupId } = req.params;
+      const { userId } = req.body;
+
+      if (!userId) {
+        return res.status(400).json({ error: "userId required" });
+      }
+
+      const group = await CommunityGroup.findById(groupId);
+      if (!group) {
+        return res.status(404).json({ error: "Group not found" });
+      }
+
+      const memberIndex = group.members.findIndex(m => m.userId === userId);
+      if (memberIndex === -1) {
+        return res.status(404).json({ error: "Member not found in group" });
+      }
+
+      group.members.splice(memberIndex, 1);
+
+      // If group is empty, mark as inactive
+      if (group.members.length === 0) {
+        group.isActive = false;
+      }
+
+      await group.save();
+      res.json({ message: "Member removed successfully" });
+    } catch (err) {
+      console.error("Error removing member:", err);
+      res.status(500).json({ error: "Failed to remove member" });
     }
   },
 
