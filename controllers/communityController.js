@@ -9,89 +9,33 @@ module.exports = {
   
   getGroups: async (req, res) => {
     try {
-      console.log("📢 [getGroups] Request received");
-      console.log("📢 [getGroups] CommunityGroup model:", CommunityGroup ? "✅ loaded" : "❌ not loaded");
-      
       try {
         // Try MongoDB first
         const groups = await CommunityGroup.find({ isActive: true })
-          .select("name description createdBy adminId isPrivate members isActive maxMembers createdAt")
+          .select("_id name description createdBy adminId isPrivate members isActive maxMembers createdAt inviteCode")
           .sort({ createdAt: -1 });
-        
-        console.log("📢 [getGroups] Found", groups.length, "groups in MongoDB");
-        
-        // If no groups exist, create default ones
-        if (groups.length === 0) {
-          console.log("📢 [getGroups] No active groups found. Creating default groups in MongoDB...");
-          const defaultGroups = [
-            {
-              name: "Motivation",
-              description: "Daily motivational talks 💪",
-              createdBy: "HOST",
-              adminId: "HOST",
-              members: [{ userId: "HOST", nickname: "System Admin", joinedAt: new Date() }],
-              isActive: true
-            },
-            {
-              name: "Mindfulness",
-              description: "Relax, meditate and share peace 🧘",
-              createdBy: "HOST",
-              adminId: "HOST",
-              members: [{ userId: "HOST", nickname: "System Admin", joinedAt: new Date() }],
-              isActive: true
-            },
-            {
-              name: "Support",
-              description: "A safe place to talk and be heard 💙",
-              createdBy: "HOST",
-              adminId: "HOST",
-              members: [{ userId: "HOST", nickname: "System Admin", joinedAt: new Date() }],
-              isActive: true
-            }
-          ];
-          
-          try {
-            const createdGroups = await CommunityGroup.insertMany(defaultGroups);
-            console.log("✅ [getGroups] Default groups created in MongoDB:", createdGroups.length);
-            
-            const groupsWithCount = createdGroups.map(group => ({
-              ...group.toObject(),
-              memberCount: group.members.length,
-            }));
-            
-            return res.json(groupsWithCount);
-          } catch (insertErr) {
-            console.error("❌ [getGroups] Error creating default groups in MongoDB:", insertErr.message);
-            // Fall through to use fallback
-          }
-        }
         
         // Return groups with member count
         const groupsWithCount = groups.map(group => ({
           ...group.toObject(),
-          memberCount: group.members.length,
+          memberCount: group.members ? group.members.length : 0,
         }));
         
-        console.log(`✅ [getGroups] Returning ${groupsWithCount.length} groups from MongoDB`);
         return res.json(groupsWithCount);
       } catch (mongoErr) {
         console.warn("⚠️ [getGroups] MongoDB error:", mongoErr.message);
-        console.log("📢 [getGroups] Falling back to in-memory store...");
       }
       
       // Fallback: Use in-memory store
       if (global.communityStore && global.communityStore.groups) {
-        console.log(`✅ [getGroups] Returning ${global.communityStore.groups.length} groups from fallback store`);
         return res.json(global.communityStore.groups);
       }
       
       // If no fallback, return empty
-      console.warn("⚠️ [getGroups] No data source available, returning empty array");
       res.json([]);
       
     } catch (err) {
-      console.error("❌ [getGroups] Unexpected error:", err.message);
-      console.error("❌ [getGroups] Full error:", err);
+      console.error("❌ [getGroups] Error:", err.message);
       res.status(500).json({ error: "Failed to fetch groups", details: err.message });
     }
   },
