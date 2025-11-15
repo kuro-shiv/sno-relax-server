@@ -30,21 +30,45 @@ function writeCommunity(data) {
 
 router.get("/users", async (req, res) => {
   try {
+    console.log("[getUsers] 🔄 Fetching users from MongoDB...");
     const users = await User.find().sort({ createdAt: -1 });
+    console.log(`[getUsers] ✅ Successfully fetched ${users.length} users from MongoDB`);
     res.json(users);
   } catch (err) {
-    console.error("Error fetching users:", err);
-    res.status(500).json({ error: "Internal Server Error" });
+    console.error("[getUsers] ❌ MongoDB Error:", err.message);
+    console.log("[getUsers] 📥 Falling back to in-memory userStore...");
+    
+    // Fallback to in-memory user store
+    if (global.userStore && Array.isArray(global.userStore)) {
+      console.log(`[getUsers] ✅ Returning ${global.userStore.length} users from fallback store`);
+      res.json(global.userStore);
+    } else {
+      console.error("[getUsers] ❌ Fallback store not available");
+      res.status(500).json({ error: "Failed to fetch users - database unavailable" });
+    }
   }
 });
 
 router.get("/users/:id", async (req, res) => {
   try {
+    console.log(`[getUser] 🔄 Fetching user ${req.params.id}...`);
     const user = await User.findById(req.params.id);
-    if (!user) return res.status(404).json({ error: "User not found" });
+    if (!user) {
+      console.log(`[getUser] ⚠️ User ${req.params.id} not found in MongoDB, checking fallback...`);
+      // Try fallback store
+      if (global.userStore) {
+        const fallbackUser = global.userStore.find(u => u._id === req.params.id);
+        if (fallbackUser) {
+          console.log(`[getUser] ✅ Found in fallback store`);
+          return res.json(fallbackUser);
+        }
+      }
+      return res.status(404).json({ error: "User not found" });
+    }
+    console.log(`[getUser] ✅ Found user ${req.params.id}`);
     res.json(user);
   } catch (err) {
-    console.error("Error fetching user:", err);
+    console.error(`[getUser] ❌ Error:`, err.message);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });

@@ -53,7 +53,47 @@ global.communityStore = {
   messages: []
 };
 
-console.log("💾 [Server] In-memory fallback store initialized with 3 default groups");
+// IN-MEMORY USER STORE (fallback when MongoDB unavailable)
+global.userStore = [
+  {
+    _id: crypto.randomUUID(),
+    userId: "demo-user-1",
+    firstName: "John",
+    lastName: "Demo",
+    email: "john.demo@example.com",
+    phone: "+1234567890",
+    city: "New York",
+    communityNickname: "JohnD",
+    banned: false,
+    createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // 30 days ago
+  },
+  {
+    _id: crypto.randomUUID(),
+    userId: "demo-user-2",
+    firstName: "Sarah",
+    lastName: "Johnson",
+    email: "sarah.johnson@example.com",
+    phone: "+1987654321",
+    city: "Los Angeles",
+    communityNickname: "SarahJ",
+    banned: false,
+    createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000) // 15 days ago
+  },
+  {
+    _id: crypto.randomUUID(),
+    userId: "demo-user-3",
+    firstName: "Mike",
+    lastName: "Wilson",
+    email: "mike.wilson@example.com",
+    phone: "+1555666777",
+    city: "Chicago",
+    communityNickname: "MikeW",
+    banned: false,
+    createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // 7 days ago
+  }
+];
+
+console.log("💾 [Server] In-memory fallback stores initialized (3 default groups + 3 demo users");
 
 // Routes
 const authRoutes = require("./routes/authRoutes");
