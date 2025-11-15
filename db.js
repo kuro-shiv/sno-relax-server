@@ -1,23 +1,27 @@
 // sno-relax-server/db.js
 const mongoose = require('mongoose');
 
-// Use environment variable when provided; otherwise fall back to a local MongoDB URL.
-// DO NOT hard-code production credentials here — set `MONGODB_URI` in your deployment environment.
-const MONGO_URI = process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb://localhost:27017/sno-relax';
+// Only connect when a MONGODB_URI (or MONGO_URI) environment variable is provided.
+// This prevents the server from attempting to connect to localhost in hosted environments.
+// Set `MONGODB_URI` in your deployment or local env when you want DB connectivity.
+const MONGO_URI = process.env.MONGODB_URI || process.env.MONGO_URI || null;
 
 // By default disable mongoose buffering so model operations fail fast when DB is unavailable.
 mongoose.set('bufferCommands', false);
 
 const connectDB = async () => {
+  if (!MONGO_URI) {
+    console.warn('⚠️ [DB] No MONGODB_URI set — skipping MongoDB connection. Using in-memory stores only.');
+    return;
+  }
+
   try {
     console.log("🔗 [DB] Attempting to connect to MongoDB...");
-    console.log("🔗 [DB] URI:", MONGO_URI);
+    console.log("🔗 [DB] URI: (hidden)");
 
     // Use a short server selection timeout so the app doesn't hang for long when Mongo is unreachable
     await mongoose.connect(MONGO_URI, {
       serverSelectionTimeoutMS: 5000,
-      // family: 4 forces IPv4 (can help in some environments), uncomment if needed
-      // family: 4,
     });
 
     console.log('✅ [DB] MongoDB connected successfully');
