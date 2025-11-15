@@ -21,7 +21,8 @@
   },
   "devDependencies": {
     "eslint": "^8.46.0",
-    "nodemon": "^3.1.10"
+    "nodemon": "^3.1.10",
+    "mongodb-memory-server": "^8.14.0"
   },
   "engines": {
     "node": ">=18.0.0"
