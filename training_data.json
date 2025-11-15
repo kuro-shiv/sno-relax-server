@@ -1,0 +1,34 @@
+[
+  {
+    "userId": "guest",
+    "userMessage": "hi",
+    "botReply": "I'm here to listen and support you. 🌱 What's on your mind?",
+    "language": "en",
+    "source": "default",
+    "timestamp": "2025-11-15T19:19:59.096Z"
+  },
+  {
+    "userId": "guest",
+    "userMessage": "hi'",
+    "botReply": "I'm here to listen and support you. 🌱 What's on your mind?",
+    "language": "en",
+    "source": "default",
+    "timestamp": "2025-11-15T19:20:10.394Z"
+  },
+  {
+    "userId": "guest",
+    "userMessage": "ji",
+    "botReply": "I'm here to listen and support you. 🌱 What's on your mind?",
+    "language": "en",
+    "source": "default",
+    "timestamp": "2025-11-15T19:20:17.730Z"
+  },
+  {
+    "userId": "guest",
+    "userMessage": "ji",
+    "botReply": "I'm here to listen and support you. 🌱 What's on your mind?",
+    "language": "en",
+    "source": "default",
+    "timestamp": "2025-11-15T19:20:24.326Z"
+  }
+]

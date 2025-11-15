@@ -5,6 +5,8 @@ const communityGroupSchema = new mongoose.Schema({
   description: { type: String, default: "" },
   createdBy: { type: String, required: true }, // userId of admin/creator
   adminId: { type: String, required: true }, // admin's userId for easier reference
+  isPrivate: { type: Boolean, default: false },
+  inviteCode: { type: String, default: null },
   members: [{
     userId: { type: String, required: true },
     nickname: { type: String, default: "Anonymous" },

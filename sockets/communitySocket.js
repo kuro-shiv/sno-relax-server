@@ -18,10 +18,22 @@ module.exports = function (io) {
 
     // Support both legacy ('sendMessage'/'newMessage') and newer ('sendGroupMessage'/'receiveGroupMessage') events
     socket.on("sendGroupMessage", async (payload) => {
-      // payload: { groupId, senderId, message }
+      // payload: { groupId, senderId, senderNickname, message }
       try {
-        const { groupId, senderId, message } = payload;
-        const m = new GroupMessage({ groupId, senderId, message });
+        const { groupId, senderId, senderNickname, message, isAdmin: forceAdmin } = payload;
+
+        // detect admin from store
+        let isAdmin = !!forceAdmin;
+        try {
+          const admins = require("../store/admins.json");
+          if (Array.isArray(admins) && admins.some(a => String(a.userId) === String(senderId))) {
+            isAdmin = true;
+          }
+        } catch (e) {
+          // ignore
+        }
+
+        const m = new GroupMessage({ groupId, senderId, senderNickname: senderNickname || (isAdmin ? 'Admin' : 'Anonymous'), message, isAdmin });
         await m.save();
         const populated = await m.populate("senderId", "name");
         // emit both new and receive events for backward compatibility
@@ -40,11 +52,20 @@ module.exports = function (io) {
         // Try to persist if senderId available
         const senderId = message.senderId || message.userId || null;
         const text = message.message || message.text || (typeof message === "string" ? message : "");
-        const m = new GroupMessage({ groupId, senderId, message: text });
-        await m.save();
-        const populated = await m.populate("senderId", "name");
-        io.to(groupId).emit("newMessage", populated);
-        io.to(groupId).emit("receiveGroupMessage", populated);
+          // legacy handler: try to detect admin if senderId provided
+          let isAdmin = false;
+          try {
+            const admins = require("../store/admins.json");
+            if (Array.isArray(admins) && admins.some(a => String(a.userId) === String(senderId))) {
+              isAdmin = true;
+            }
+          } catch (e) {}
+
+          const m = new GroupMessage({ groupId, senderId, senderNickname: (isAdmin ? 'Admin' : undefined), message: text, isAdmin });
+          await m.save();
+          const populated = await m.populate("senderId", "name");
+          io.to(groupId).emit("newMessage", populated);
+          io.to(groupId).emit("receiveGroupMessage", populated);
       } catch (err) {
         console.error("socket sendMessage error", err);
       }

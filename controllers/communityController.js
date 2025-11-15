@@ -15,7 +15,7 @@ module.exports = {
       try {
         // Try MongoDB first
         const groups = await CommunityGroup.find({ isActive: true })
-          .select("name description createdBy adminId members isActive maxMembers createdAt")
+          .select("name description createdBy adminId isPrivate members isActive maxMembers createdAt")
           .sort({ createdAt: -1 });
         
         console.log("📢 [getGroups] Found", groups.length, "groups in MongoDB");
@@ -98,7 +98,7 @@ module.exports = {
 
   createGroup: async (req, res) => {
     try {
-      const { name, description, createdBy, maxMembers = 50 } = req.body;
+      const { name, description, createdBy, maxMembers = 50, isPrivate = false, inviteCode: providedInvite } = req.body;
       
       if (!name || !createdBy) {
         return res.status(400).json({ error: "Name and createdBy (userId) required" });
@@ -113,11 +113,19 @@ module.exports = {
       const user = await User.findOne({ userId: createdBy });
       const creatorNickname = user ? (user.communityNickname || `${user.firstName || 'Admin'}`) : "Group Admin";
 
+      // generate invite code for private groups if not provided
+      let inviteCode = null;
+      if (isPrivate) {
+        inviteCode = providedInvite && String(providedInvite).trim() ? String(providedInvite).trim() : Math.random().toString(36).slice(2, 8).toUpperCase();
+      }
+
       const group = await CommunityGroup.create({
         name,
         description: description || "",
         createdBy,
         adminId: createdBy,
+        isPrivate: !!isPrivate,
+        inviteCode: inviteCode,
         members: [{
           userId: createdBy,
           nickname: creatorNickname,
@@ -127,6 +135,7 @@ module.exports = {
         isActive: true,
       });
 
+      // return full group (including inviteCode) so admin can copy it
       res.status(201).json(group);
     } catch (err) {
       console.error("Error creating group:", err);
@@ -191,7 +200,7 @@ module.exports = {
   joinGroup: async (req, res) => {
     try {
       const { groupId } = req.params;
-      const { userId, nickname } = req.body;
+      const { userId, nickname, inviteCode } = req.body;
 
       if (!userId) {
         return res.status(400).json({ error: "userId required" });
@@ -206,6 +215,14 @@ module.exports = {
         return res.status(400).json({ error: "Group is inactive" });
       }
 
+      // If group is private, require inviteCode or allow admin
+      if (group.isPrivate) {
+        const provided = inviteCode || null;
+        if (String(group.adminId) !== String(userId) && (!provided || String(provided) !== String(group.inviteCode))) {
+          return res.status(403).json({ error: "Invite code required or invalid for private group" });
+        }
+      }
+
       // Check if already a member
       if (group.members.some(m => m.userId === userId)) {
         return res.status(400).json({ error: "Already a member of this group" });
@@ -216,13 +233,10 @@ module.exports = {
         return res.status(400).json({ error: "Group is full" });
       }
 
-      // Get user to verify existence
+      // Try to find user; allow joining even if user does not exist (anonymous/guest flows)
       const user = await User.findOne({ userId });
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
 
-      const finalNickname = nickname || user.communityNickname || "Anonymous";
+      const finalNickname = nickname || (user ? (user.communityNickname || "Anonymous") : "Anonymous");
 
       group.members.push({
         userId,
@@ -397,7 +411,7 @@ module.exports = {
   postGroupMessage: async (req, res) => {
     try {
       const { groupId } = req.params;
-      const { senderId, senderNickname, message } = req.body;
+      const { senderId, senderNickname, message, isAdmin: forceAdminFlag } = req.body;
 
       if (!senderId || !message) {
         return res.status(400).json({ error: "senderId and message required" });
@@ -413,13 +427,45 @@ module.exports = {
         return res.status(404).json({ error: "Group not found" });
       }
 
-      // Verify sender is a member
+      // Allow posting if sender is a member OR is an admin (official)
       const member = group.members.find(m => m.userId === senderId);
-      if (!member) {
+
+      // Load admin list from store to detect official admins
+      let isAdmin = false;
+      try {
+        // eslint-disable-next-line global-require
+        const admins = require("../store/admins.json");
+        if (Array.isArray(admins) && admins.some(a => String(a.userId) === String(senderId))) {
+          isAdmin = true;
+        }
+      } catch (e) {
+        // ignore if admins file not available
+      }
+
+      // allow explicit admin override (useful from admin UI)
+      if (!isAdmin && forceAdminFlag) isAdmin = true;
+
+      if (!member && !isAdmin) {
         return res.status(403).json({ error: "Not a member of this group" });
       }
 
-      const finalNickname = senderNickname || member.nickname || "Anonymous";
+      // Determine nickname
+      let finalNickname = senderNickname;
+      if (!finalNickname) {
+        if (member) finalNickname = member.nickname || "Anonymous";
+        else if (isAdmin) {
+          // try to find admin display name
+          try {
+            const admins = require("../store/admins.json");
+            const found = Array.isArray(admins) && admins.find(a => String(a.userId) === String(senderId));
+            finalNickname = (found && (found.firstName || found.email || 'Admin')) || 'Admin';
+          } catch (e) {
+            finalNickname = 'Admin';
+          }
+        } else {
+          finalNickname = 'Anonymous';
+        }
+      }
 
       const newMessage = await GroupMessage.create({
         groupId,
@@ -427,6 +473,7 @@ module.exports = {
         senderNickname: finalNickname,
         message: message.trim(),
         isEdited: false,
+        isAdmin: !!isAdmin,
       });
 
       res.status(201).json(newMessage);
