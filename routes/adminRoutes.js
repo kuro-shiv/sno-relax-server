@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
+const mongoose = require('mongoose');
 const ChatHistory = require("../models/ChatHistory");
 const Content = require("../models/Content");
 const Community = require("../models/Community");
@@ -27,6 +28,27 @@ function writeCommunity(data) {
 }
 
 // ----------------- USERS -----------------
+
+// Health endpoint (DB status) - safe, masked diagnostics
+router.get('/health', (req, res) => {
+  try {
+    const uriRaw = process.env.MONGODB_URI || process.env.MONGO_URI || null;
+    const isLocal = uriRaw ? /localhost|127\.0\.0\.1/.test(uriRaw) : false;
+    const isSRV = uriRaw ? /mongodb\+srv:/.test(uriRaw) : false;
+    const dbState = mongoose.connection ? mongoose.connection.readyState : 0; // 0=disconnected,1=connected,2=connecting,3=disconnecting
+    res.json({
+      ok: true,
+      dbConnected: dbState === 1,
+      dbState,
+      dbType: uriRaw ? (isSRV ? 'atlas-srv' : isLocal ? 'local' : 'uri') : 'none',
+      envSet: !!uriRaw
+    });
+  } catch (err) {
+    console.error('Health check error:', err);
+    res.status(500).json({ ok: false, error: 'Health check failed' });
+  }
+});
+
 
 router.get("/users", async (req, res) => {
   try {
