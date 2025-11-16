@@ -24,6 +24,7 @@ const translateRoutes = require('./routes/translateRoutes');
 const aiRoutes = require('./routes/aiRoutes');
 const privateRoutes = require('./routes/privateRoutes');
 const chatHistoryRoutes = require('./routes/chatHistoryRoutes');
+const reportRoutes = require('./routes/reportRoutes');
 
 const app = express();
 
@@ -78,6 +79,7 @@ app.use('/api/private', privateRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/translate', translateRoutes);
+app.use('/api/reports', reportRoutes);
 
 // -------------------- 404 Handler --------------------
 app.use((req, res) => res.status(404).json({ error: 'Endpoint not found' }));

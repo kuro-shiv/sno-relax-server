@@ -284,4 +284,84 @@ router.get('/training-stats/:userId', async (req, res) => {
   }
 });
 
+// GET /api/ai/progress/:userId - weekly progress insights (mood + chat keywords)
+router.get('/progress/:userId', async (req, res) => {
+  const { userId } = req.params;
+  const days = Number(req.query.days || 7);
+  if (!userId) return res.status(400).json({ error: 'userId required' });
+
+  try {
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    // Fetch moods in the period
+    const moods = await Mood.find({ userId, date: { $gte: since } }).sort({ date: 1 }).lean();
+
+    // Fetch chat history in the period
+    const chats = await ChatHistory.find({ userId, timestamp: { $gte: since } }).sort({ timestamp: 1 }).lean();
+
+    // Compute simple mood stats
+    const moodValues = moods.map(m => Number(m.mood || 0));
+    const count = moodValues.length;
+    const avg = count ? (moodValues.reduce((a,b)=>a+b,0)/count) : null;
+    const firstAvg = count >= 3 ? (moodValues.slice(0, Math.ceil(count/2)).reduce((a,b)=>a+b,0) / Math.max(1, Math.ceil(count/2))) : avg;
+    const lastAvg = count >= 3 ? (moodValues.slice(Math.floor(count/2)).reduce((a,b)=>a+b,0) / Math.max(1, Math.floor(count/2))) : avg;
+    const trend = (firstAvg !== null && lastAvg !== null) ? (lastAvg - firstAvg) : 0; // positive = improving
+
+    // Find best/worst days
+    let best = null, worst = null;
+    if (moods.length) {
+      const grouped = {};
+      moods.forEach(m => {
+        const d = new Date(m.date).toISOString().slice(0,10);
+        grouped[d] = grouped[d] || [];
+        grouped[d].push(Number(m.mood || 0));
+      });
+      const daysList = Object.keys(grouped).map(d => ({ day: d, avg: grouped[d].reduce((a,b)=>a+b,0)/grouped[d].length }));
+      daysList.sort((a,b)=>b.avg - a.avg);
+      best = daysList[0] || null;
+      worst = daysList[daysList.length-1] || null;
+    }
+
+    // Extract keywords from chat messages
+    const text = chats.map(c => (c.userMessage || '')).join(' ').toLowerCase();
+    const KEYWORDS = ['stress','anxiety','sleep','insomnia','tired','depress','sad','panic','work','family','relationship','lonely','overwhelm','angry','suicid','pain','headache','bp','blood','sugar','diabetes'];
+    const keywordCounts = {};
+    KEYWORDS.forEach(k => { const re = new RegExp(`\\b${k}\\w*\\b`,'g'); const matches = text.match(re); if (matches && matches.length) keywordCounts[k] = matches.length; });
+    // top keywords
+    const topKeywords = Object.entries(keywordCounts).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([k,c])=>({ keyword:k, count:c }));
+
+    // Basic recommended actions mapping
+    const recommendations = [];
+    if (topKeywords.some(t=>['stress','anxiety','panic','overwhelm','worry'].includes(t.keyword))) {
+      recommendations.push({ title: 'Breathing & Grounding', reason: 'High stress/anxiety keywords found', tips: ['Try 4-7-8 breathing for 5 minutes','Take a 5-minute walk to break rumination'] });
+    }
+    if (topKeywords.some(t=>['sleep','insomnia','tired'].includes(t.keyword))) {
+      recommendations.push({ title: 'Sleep Hygiene', reason: 'Sleep-related keywords found', tips: ['Avoid screens 1 hour before bed','Keep consistent sleep/wake times','Limit caffeine after midday'] });
+    }
+    if (topKeywords.some(t=>['depress','sad','lonely'].includes(t.keyword))) {
+      recommendations.push({ title: 'Social Connection & Low-Intensity Activity', reason: 'Low mood keywords found', tips: ['Reach out to a trusted friend or community','Try a 10-minute walk outside each day'] });
+    }
+    if (topKeywords.length === 0) {
+      recommendations.push({ title: 'Maintain & Monitor', reason: 'No dominant concerning keywords found', tips: ['Keep logging mood daily','Try simple breathing breaks or brief walks'] });
+    }
+
+    // Friendly interpretation for users
+    const interpret = () => {
+      if (avg === null) return { headline: 'No mood data', detail: 'No mood entries recorded this period.' };
+      const avgRounded = Math.round(avg*10)/10;
+      let headline = 'Stable mood';
+      if (trend > 0.3) headline = 'Improving mood';
+      else if (trend < -0.3) headline = 'Worsening mood';
+      let detail = `Average mood this period: ${avgRounded} (scale 0–5). `;
+      if (best && worst) detail += `Best day: ${best.day} (${Math.round(best.avg*10)/10}), worst day: ${worst.day} (${Math.round(worst.avg*10)/10}).`;
+      return { headline, detail };
+    };
+
+    res.json({ ok: true, insights: { avg, count, trend, best, worst, topKeywords, recommendations, narrative: interpret() } });
+  } catch (err) {
+    console.error('progress insights error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
+

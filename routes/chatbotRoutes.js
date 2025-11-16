@@ -261,7 +261,10 @@ Return ONLY valid JSON. Example:
 async function detectLanguage(text) {
   try {
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=${encodeURIComponent(text)}`;
-    const res = await fetch(url, { timeout: 5000 });
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(id);
     if (!res.ok) return "en";
     const data = await res.json();
     return (data && data[2]) || "en";
@@ -273,17 +276,20 @@ async function detectLanguage(text) {
 
 // Translate text (safe with fallback)
 async function translate(text, source, target) {
-  try {
+    try {
     // Skip translation if same language or already en
     if (source === target) return text;
-    
+
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${source}&tl=${target}&dt=t&q=${encodeURIComponent(text)}`;
-    const res = await fetch(url, { timeout: 5000 });
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(id);
     if (!res.ok) return text;
     const data = await res.json();
 
     if (!data || !Array.isArray(data[0])) return text;
-    
+
     let translated = "";
     data[0].forEach(chunk => {
       if (chunk && chunk[0]) translated += chunk[0];
