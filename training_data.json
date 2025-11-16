@@ -178,5 +178,37 @@
     "language": "hi",
     "source": "default",
     "timestamp": "2025-11-16T07:25:00.246Z"
+  },
+  {
+    "userId": "guest",
+    "userMessage": "hello where are you from",
+    "botReply": "I'm here to listen and support you. 🌱 What's on your mind?",
+    "language": "hi",
+    "source": "default",
+    "timestamp": "2025-11-16T07:37:28.244Z"
+  },
+  {
+    "userId": "guest",
+    "userMessage": "hi",
+    "botReply": "I'm here to listen and support you. 🌱 What's on your mind?",
+    "language": "en",
+    "source": "default",
+    "timestamp": "2025-11-16T07:48:09.246Z"
+  },
+  {
+    "userId": "guest",
+    "userMessage": "i got cheated",
+    "botReply": "I'm here to listen and support you. 🌱 What's on your mind?",
+    "language": "en",
+    "source": "default",
+    "timestamp": "2025-11-16T07:48:19.039Z"
+  },
+  {
+    "userId": "guest",
+    "userMessage": "i feel sad",
+    "botReply": "I'm here to listen and support you. 🌱 What's on your mind?",
+    "language": "en",
+    "source": "default",
+    "timestamp": "2025-11-16T07:48:35.186Z"
   }
 ]
