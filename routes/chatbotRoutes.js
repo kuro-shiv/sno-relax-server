@@ -126,36 +126,48 @@ Your role is to:
 User: ${prompt}
 SnoBot:`;
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${COHERE_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: 'xlarge',
-      prompt: enhancedPrompt,
-      max_tokens: 100,
-      temperature: 0.8,
-      frequency_penalty: 0.5,
-      presence_penalty: 0.1,
-      stop_sequences: ['\nUser:', '\n--', 'User says:'],
-    }),
-  });
+  // Create AbortController for timeout
+  const controller = new AbortController();
+  const fetchTimeoutId = setTimeout(() => controller.abort(), 7000); // 7s internal timeout (1s less than external)
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Cohere generate failed: ${res.status} ${text}`);
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${COHERE_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'xlarge',
+        prompt: enhancedPrompt,
+        max_tokens: 100,
+        temperature: 0.8,
+        frequency_penalty: 0.5,
+        presence_penalty: 0.1,
+        stop_sequences: ['\nUser:', '\n--', 'User says:'],
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(fetchTimeoutId);
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Cohere generate failed: ${res.status} ${text}`);
+    }
+
+    const data = await res.json();
+    let response = data?.generations?.[0]?.text?.trim() || "";
+    
+    // Clean up response
+    response = response.replace(/^SnoBot:\s*/, '').trim();
+    response = response.split('\n')[0].trim(); // Take first line only
+    
+    return response || "I'm here to listen. How are you feeling today? 🌱";
+  } catch (err) {
+    clearTimeout(fetchTimeoutId);
+    throw err;
   }
-
-  const data = await res.json();
-  let response = data?.generations?.[0]?.text?.trim() || "";
-  
-  // Clean up response
-  response = response.replace(/^SnoBot:\s*/, '').trim();
-  response = response.split('\n')[0].trim(); // Take first line only
-  
-  return response || "I'm here to listen. How are you feeling today? 🌱";
 }
 
 // ---------------- Mood Analysis + Habit Suggestions (Cohere) ----------------
@@ -178,41 +190,54 @@ Return ONLY valid JSON. Example:
 
   try {
     const url = 'https://api.cohere.ai/v1/generate';
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${COHERE_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: 'xlarge',
-        prompt: moodPrompt,
-        max_tokens: 180,
-        temperature: 0.4,
-        stop_sequences: ["\n\n"],
-      }),
-    });
+    
+    // Create AbortController for timeout
+    const controller = new AbortController();
+    const fetchTimeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout for mood analysis
 
-    if (!res.ok) {
-      const txt = await res.text().catch(() => '');
-      console.warn('Cohere mood analysis failed:', res.status, txt);
-      return null;
-    }
-
-    const data = await res.json();
-    let text = data?.generations?.[0]?.text || '';
-    text = text.trim();
-
-    // Try to extract the JSON from the model output
-    const jsonStart = text.indexOf('{');
-    if (jsonStart >= 0) text = text.slice(jsonStart);
     try {
-      const parsed = JSON.parse(text);
-      // Basic validation
-      if (parsed && (parsed.mood || parsed.habits)) return parsed;
-    } catch (e) {
-      console.warn('Failed to parse Cohere mood JSON:', e.message);
-      return null;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${COHERE_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: 'xlarge',
+          prompt: moodPrompt,
+          max_tokens: 180,
+          temperature: 0.4,
+          stop_sequences: ["\n\n"],
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(fetchTimeoutId);
+
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        console.warn('Cohere mood analysis failed:', res.status, txt);
+        return null;
+      }
+
+      const data = await res.json();
+      let text = data?.generations?.[0]?.text || '';
+      text = text.trim();
+
+      // Try to extract the JSON from the model output
+      const jsonStart = text.indexOf('{');
+      if (jsonStart >= 0) text = text.slice(jsonStart);
+      try {
+        const parsed = JSON.parse(text);
+        // Basic validation
+        if (parsed && (parsed.mood || parsed.habits)) return parsed;
+      } catch (e) {
+        console.warn('Failed to parse Cohere mood JSON:', e.message);
+        return null;
+      }
+    } catch (err) {
+      clearTimeout(fetchTimeoutId);
+      throw err;
     }
   } catch (err) {
     console.warn('Error calling Cohere mood analysis:', err.message);

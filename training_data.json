@@ -170,5 +170,13 @@
     "language": "hi",
     "source": "default",
     "timestamp": "2025-11-16T07:19:20.739Z"
+  },
+  {
+    "userId": "guest",
+    "userMessage": "Hello, how are you and I am also unwell, so what should I do?",
+    "botReply": "I'm here to listen and support you. 🌱 What's on your mind?",
+    "language": "hi",
+    "source": "default",
+    "timestamp": "2025-11-16T07:25:00.246Z"
   }
 ]

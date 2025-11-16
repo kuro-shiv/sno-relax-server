@@ -16,27 +16,39 @@ async function callCohereGuide(prompt) {
   const url = 'https://api.cohere.ai/v1/generate';
   const enhanced = `You are SnoBot, a compassionate mental health assistant. Given the user's concise history and mood data, produce a short JSON object with keys: summary (one short paragraph), urgent (true/false), recommendations (array of objects with title, type("yoga"|"exercise"|"breathing"|"lifestyle"), durationMinutes, intensity("low"|"moderate"|"high"), steps (array of short step instructions)). Keep responses safe and do not provide medical diagnoses. User data:\n${prompt}\nRespond ONLY with valid JSON.`;
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${COHERE_API_KEY}` },
-    body: JSON.stringify({ model: 'xlarge', prompt: enhanced, max_tokens: 300, temperature: 0.7 }),
-  });
+  // Create AbortController for timeout
+  const controller = new AbortController();
+  const fetchTimeoutId = setTimeout(() => controller.abort(), 6000); // 6s timeout for guide generation
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Cohere failed: ${res.status} ${text}`);
-  }
-  const data = await res.json();
-  const text = data?.generations?.[0]?.text || '';
-  // Try to extract JSON
-  const jsonStart = text.indexOf('{');
-  const jsonText = jsonStart !== -1 ? text.slice(jsonStart) : text;
   try {
-    const obj = JSON.parse(jsonText);
-    return obj;
-  } catch (e) {
-    // If parsing fails, return a fallback structure
-    return { summary: text.trim().split('\n')[0] || '', urgent: false, recommendations: [] };
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${COHERE_API_KEY}` },
+      body: JSON.stringify({ model: 'xlarge', prompt: enhanced, max_tokens: 300, temperature: 0.7 }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(fetchTimeoutId);
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Cohere failed: ${res.status} ${text}`);
+    }
+    const data = await res.json();
+    const text = data?.generations?.[0]?.text || '';
+    // Try to extract JSON
+    const jsonStart = text.indexOf('{');
+    const jsonText = jsonStart !== -1 ? text.slice(jsonStart) : text;
+    try {
+      const obj = JSON.parse(jsonText);
+      return obj;
+    } catch (e) {
+      // If parsing fails, return a fallback structure
+      return { summary: text.trim().split('\n')[0] || '', urgent: false, recommendations: [] };
+    }
+  } catch (err) {
+    clearTimeout(fetchTimeoutId);
+    throw err;
   }
 }
 
