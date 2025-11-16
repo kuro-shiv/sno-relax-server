@@ -15,6 +15,7 @@ const PrivateMessage = require("../models/PrivateMessage");
 const Report = require("../models/Report");
 const Setting = require("../models/Setting");
 const UserProfileChange = require("../models/UserProfileChange");
+const adminAuth = require('../middleware/adminAuth');
 
 // Simple helpers for community groups stored in a JSON file
 const COMMUNITY_FILE = path.join(__dirname, "..", "data", "communities.json");
@@ -614,6 +615,58 @@ router.post('/profile-change', async (req, res) => {
   } catch (err) {
     console.error('Error logging profile change:', err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// ----------------- ADMIN POPUP -----------------
+// Store admin popup content in server `store/admin_popup.json` so frontend can fetch it
+const POPUP_FILE = path.join(__dirname, '..', 'store', 'admin_popup.json');
+
+function readPopup() {
+  try {
+    if (!fs.existsSync(POPUP_FILE)) return { content: '', version: '1' };
+    const raw = fs.readFileSync(POPUP_FILE, 'utf8');
+    return JSON.parse(raw || '{}');
+  } catch (e) {
+    console.error('Error reading popup file:', e);
+    return { content: '', version: '1' };
+  }
+}
+
+function writePopup(obj) {
+  try {
+    fs.mkdirSync(path.dirname(POPUP_FILE), { recursive: true });
+    fs.writeFileSync(POPUP_FILE, JSON.stringify(obj || { content: '', version: '1' }, null, 2));
+    return true;
+  } catch (e) {
+    console.error('Error writing popup file:', e);
+    return false;
+  }
+}
+
+// Public GET: return popup content and version
+router.get('/popup', (req, res) => {
+  try {
+    const p = readPopup();
+    res.json({ ok: true, content: p.content || '', version: p.version || '1' });
+  } catch (err) {
+    console.error('Error reading admin popup:', err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Admin-only POST to update popup content
+router.post('/popup', adminAuth, (req, res) => {
+  try {
+    const { content, version } = req.body || {};
+    if (typeof content !== 'string') return res.status(400).json({ ok: false, error: 'content (string) required' });
+    const v = version || String(Date.now());
+    const ok = writePopup({ content, version: v });
+    if (!ok) return res.status(500).json({ ok: false, error: 'Failed to save popup' });
+    return res.json({ ok: true, content, version: v });
+  } catch (err) {
+    console.error('Error writing admin popup:', err);
+    return res.status(500).json({ ok: false, error: err.message });
   }
 });
 

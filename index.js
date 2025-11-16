@@ -108,7 +108,31 @@ try {
 }
 
 // -------------------- Start Server --------------------
-const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => console.log(`🚀 SnoRelax server running on port ${PORT}`));
+const DEFAULT_PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 5000;
+
+function startServer(port, attemptsLeft = 5) {
+  server.listen(port, () => console.log(`🚀 SnoRelax server running on port ${port}`));
+
+  server.on('error', (err) => {
+    if (err && err.code === 'EADDRINUSE') {
+      console.error(`Port ${port} already in use.`);
+      if (attemptsLeft > 0) {
+        const nextPort = port + 1;
+        console.log(`Trying port ${nextPort} (attempts left: ${attemptsLeft - 1})`);
+        // remove existing listeners and try next port
+        server.removeAllListeners('error');
+        setTimeout(() => startServer(nextPort, attemptsLeft - 1), 500);
+        return;
+      }
+      console.error('No available ports found. Exiting.');
+      process.exit(1);
+    }
+
+    console.error('Server error during startup:', err);
+    process.exit(1);
+  });
+}
+
+startServer(DEFAULT_PORT);
 
 module.exports = app;
