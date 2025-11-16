@@ -315,6 +315,14 @@ router.post("/", async (req, res) => {
       translatedText = await translate(message, sourceLang, "en");
     }
 
+    // -------- Keyword extraction + prefer-Cohere logic --------
+    // If the message contains multiple important keywords (or none), prefer Cohere
+    const KEYWORDS = ['stress','anxious','anxiety','depress','sad','happy','sleep','insomnia','tired','panic','work','family','relationship','angry','lonely','overwhelm','suicid'];
+    const normalized = (translatedText || '').toLowerCase();
+    const matchedKeywords = KEYWORDS.filter(k => normalized.includes(k));
+    // prefer Cohere when 2 or more keywords found, or when none are found (open-ended)
+    const preferCohere = (matchedKeywords.length >= 2) || (matchedKeywords.length === 0);
+
     // -------- Fetch Chat History ----------
     const previousChats = await ChatHistory.find({ userId }).sort({ timestamp: 1 });
 
@@ -334,7 +342,7 @@ router.post("/", async (req, res) => {
       try {
         console.log("📡 Attempting Cohere (SnoBot) with timeout...");
         const coherePromise = callCohereGenerate(translatedText);
-        const timeoutMs = 8000; // 8s timeout for primary Cohere attempt
+        const timeoutMs = preferCohere ? 12000 : 8000; // longer timeout when we prefer Cohere
         const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Cohere timeout')), timeoutMs));
         try {
           botReply = await Promise.race([coherePromise, timeoutPromise]);
@@ -423,9 +431,9 @@ router.post("/", async (req, res) => {
       saveTrainingEntry(trainingData);
       
       // Also save to DB asynchronously (non-blocking) for future training
-      // Only persist to DB when the reply came from Cohere (SnoBot)
+      // Persist to DB when the reply came from Cohere OR when we flagged preferCohere
       try {
-        if (source === 'cohere') {
+        if (source === 'cohere' || preferCohere) {
           TrainingEntry.create({
             userId,
             userMessage: message,
