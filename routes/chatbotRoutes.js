@@ -423,15 +423,18 @@ router.post("/", async (req, res) => {
       saveTrainingEntry(trainingData);
       
       // Also save to DB asynchronously (non-blocking) for future training
+      // Only persist to DB when the reply came from Cohere (SnoBot)
       try {
-        TrainingEntry.create({
-          userId,
-          userMessage: message,
-          botReply,
-          language: sourceLang,
-          source,
-          processed: false
-        }).catch(err => console.warn('Failed to save training entry to DB:', err.message));
+        if (source === 'cohere') {
+          TrainingEntry.create({
+            userId,
+            userMessage: message,
+            botReply,
+            language: sourceLang,
+            source,
+            processed: false
+          }).catch(err => console.warn('Failed to save training entry to DB:', err.message));
+        }
       } catch (e) {}
     } catch (e) {
       console.warn('Training save error:', e.message);
