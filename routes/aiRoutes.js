@@ -5,7 +5,14 @@ const Mood = require('../models/Mood');
 const User = require('../models/User');
 const HealthPlan = require('../models/HealthPlan');
 const TrainingEntry = require('../models/TrainingEntry');
-const fetch = require('node-fetch');
+// Robust fetch loader: support CommonJS (node-fetch) and dynamic import for ESM builds
+let fetch;
+try {
+  const nf = require('node-fetch');
+  fetch = nf && nf.default ? nf.default : nf;
+} catch (e) {
+  fetch = (...args) => import('node-fetch').then(m => m.default(...args));
+}
 
 let PDFDocument;
 try { PDFDocument = require('pdfkit'); } catch (e) { PDFDocument = null; }

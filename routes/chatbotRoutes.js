@@ -1,6 +1,14 @@
 const express = require("express");
 const router = express.Router();
-const fetch = require("node-fetch");
+// Robust fetch loader: support CommonJS (node-fetch) and dynamic import for ESM builds
+let fetch;
+try {
+  const nf = require('node-fetch');
+  fetch = nf && nf.default ? nf.default : nf;
+} catch (e) {
+  // Fallback to dynamic import (works in newer node)
+  fetch = (...args) => import('node-fetch').then(m => m.default(...args));
+}
 const ChatHistory = require("../models/ChatHistory");
 const TrainingEntry = require('../models/TrainingEntry');
 const User = require("../models/User");
