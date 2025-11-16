@@ -30,5 +30,145 @@
     "language": "en",
     "source": "default",
     "timestamp": "2025-11-15T19:20:24.326Z"
+  },
+  {
+    "userId": "guest",
+    "userMessage": "hi",
+    "botReply": "I'm here to listen and support you. 🌱 What's on your mind?",
+    "language": "en",
+    "source": "default",
+    "timestamp": "2025-11-15T20:21:05.470Z"
+  },
+  {
+    "userId": "guest",
+    "userMessage": "how are you",
+    "botReply": "I'm here to listen and support you. 🌱 What's on your mind?",
+    "language": "en",
+    "source": "default",
+    "timestamp": "2025-11-15T20:26:56.011Z"
+  },
+  {
+    "userId": "guest",
+    "userMessage": "hello how are you",
+    "botReply": "I'm here to listen and support you. 🌱 What's on your mind?",
+    "language": "hi",
+    "source": "default",
+    "timestamp": "2025-11-15T20:27:13.975Z"
+  },
+  {
+    "userId": "guest",
+    "userMessage": "It's been a long time since I heard your voice, please tell me how you are.",
+    "botReply": "I'm here to listen and support you. 🌱 What's on your mind?",
+    "language": "hi",
+    "source": "default",
+    "timestamp": "2025-11-15T20:27:29.461Z"
+  },
+  {
+    "userId": "guest",
+    "userMessage": "Why are you not giving any answer, I recently had a breakup, what should I do?",
+    "botReply": "I'm here to listen and support you. 🌱 What's on your mind?",
+    "language": "hi",
+    "source": "default",
+    "timestamp": "2025-11-15T20:27:41.890Z"
+  },
+  {
+    "userId": "guest",
+    "userMessage": "i wait ",
+    "botReply": "I'm here to listen and support you. 🌱 What's on your mind?",
+    "language": "en",
+    "source": "default",
+    "timestamp": "2025-11-15T20:32:39.512Z"
+  },
+  {
+    "userId": "guest",
+    "userMessage": "say some joke",
+    "language": "en",
+    "timestamp": "2025-11-15T20:32:53.010Z"
+  },
+  {
+    "userId": "guest",
+    "userMessage": "hi ",
+    "language": "en",
+    "timestamp": "2025-11-15T20:33:19.480Z"
+  },
+  {
+    "userId": "guest",
+    "userMessage": "i feel sad",
+    "language": "en",
+    "timestamp": "2025-11-15T20:33:31.980Z"
+  },
+  {
+    "userId": "guest",
+    "userMessage": "hi",
+    "language": "en",
+    "timestamp": "2025-11-15T20:34:10.419Z"
+  },
+  {
+    "userId": "guest",
+    "userMessage": "hi",
+    "language": "en",
+    "timestamp": "2025-11-15T20:36:13.995Z"
+  },
+  {
+    "userId": "guest",
+    "userMessage": "hi",
+    "language": "en",
+    "timestamp": "2025-11-15T20:37:39.633Z"
+  },
+  {
+    "userId": "guest",
+    "userMessage": "Hello, how are you",
+    "language": "hi",
+    "timestamp": "2025-11-16T07:12:39.307Z"
+  },
+  {
+    "userId": "guest",
+    "userMessage": "hi",
+    "language": "en",
+    "timestamp": "2025-11-16T07:12:49.993Z"
+  },
+  {
+    "userId": "guest",
+    "userMessage": "hi",
+    "language": "en",
+    "timestamp": "2025-11-16T07:17:01.455Z"
+  },
+  {
+    "userId": "guest",
+    "userMessage": "hi",
+    "language": "en",
+    "timestamp": "2025-11-16T07:17:13.230Z"
+  },
+  {
+    "userId": "guest",
+    "userMessage": "hi",
+    "botReply": "I'm here to listen and support you. 🌱 What's on your mind?",
+    "language": "en",
+    "source": "default",
+    "timestamp": "2025-11-16T07:18:12.585Z"
+  },
+  {
+    "userId": "guest",
+    "userMessage": "Hello",
+    "botReply": "I'm here to listen and support you. 🌱 What's on your mind?",
+    "language": "en",
+    "source": "default",
+    "timestamp": "2025-11-16T07:18:25.369Z"
+  },
+  {
+    "userId": "guest",
+    "userMessage": "Hello, how are you",
+    "botReply": "I'm here to listen and support you. 🌱 What's on your mind?",
+    "language": "hi",
+    "source": "default",
+    "timestamp": "2025-11-16T07:19:02.070Z"
+  },
+  {
+    "userId": "guest",
+    "userMessage": "I am very sad. Can you help me? I recently had a fight with my friends. Please tell me what to do.",
+    "botReply": "I'm here to listen and support you. 🌱 What's on your mind?",
+    "language": "hi",
+    "source": "default",
+    "timestamp": "2025-11-16T07:19:20.739Z"
   }
 ]

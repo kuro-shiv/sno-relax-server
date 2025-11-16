@@ -3,7 +3,11 @@ const router = express.Router();
 const ChatHistory = require('../models/ChatHistory');
 const Mood = require('../models/Mood');
 const User = require('../models/User');
+const HealthPlan = require('../models/HealthPlan');
 const fetch = require('node-fetch');
+
+let PDFDocument;
+try { PDFDocument = require('pdfkit'); } catch (e) { PDFDocument = null; }
 
 const COHERE_API_KEY = process.env.COHERE_API_KEY;
 
@@ -105,5 +109,97 @@ router.post('/guide', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+  // Generate weekly plan, save in DB, and return plan id + guide
+  router.post('/generate-weekly-plan', async (req, res) => {
+    const { userId, days = 7, includePdf = true } = req.body || {};
+    if (!userId) return res.status(400).json({ error: 'userId required' });
+
+    try {
+      // collect last N days of chat history
+      const since = new Date(Date.now() - (Number(days) || 7) * 24 * 60 * 60 * 1000);
+      const history = await ChatHistory.find({ userId, timestamp: { $gte: since } }).sort({ timestamp: 1 }).limit(1000);
+      let moods = [];
+      try { moods = await Mood.find({ userId, createdAt: { $gte: since } }).sort({ createdAt: 1 }).limit(100); } catch (e) {}
+      let profile = {};
+      try { profile = (await User.findOne({ $or: [{ userId }, { _id: userId }] })) || {}; } catch (e) {}
+
+      const compact = {
+        history: history.map(h => ({ userMessage: h.userMessage, botReply: h.botReply, timestamp: h.timestamp })),
+        moods: moods.map(m => ({ mood: m.mood, note: m.notes, date: m.createdAt })),
+        profile: { firstName: profile.firstName ? 'REDACTED' : undefined, history: profile.history }
+      };
+
+      // generate guide using existing helper
+      let guide = null;
+      if (COHERE_API_KEY) {
+        try {
+          guide = await callCohereGuide(JSON.stringify(compact));
+        } catch (err) {
+          console.warn('Cohere guide failed, using fallback:', err.message);
+        }
+      }
+      if (!guide) guide = localGuideFromData(compact);
+
+      // Build PDF (if requested and PDF lib available)
+      let pdfBuffer = null;
+      if (includePdf && PDFDocument) {
+        try {
+          const doc = new PDFDocument({ margin: 40 });
+          const chunks = [];
+          doc.on('data', (c) => chunks.push(c));
+          const title = `Weekly Health Plan - ${new Date().toLocaleDateString()}`;
+          doc.fontSize(18).text(title, { align: 'center' });
+          doc.moveDown();
+          doc.fontSize(12).text('Summary:', { underline: true });
+          doc.moveDown(0.2);
+          doc.fontSize(11).text(guide.summary || 'No summary available');
+          doc.moveDown();
+
+          if (guide.recommendations && guide.recommendations.length) {
+            doc.fontSize(12).text('Recommendations:', { underline: true });
+            guide.recommendations.forEach((r, idx) => {
+              doc.moveDown(0.2);
+              doc.fontSize(11).text(`${idx+1}. ${r.title} (${r.type}, ${r.durationMinutes || '-'} min, ${r.intensity || '-'})`);
+              if (Array.isArray(r.steps)) {
+                r.steps.forEach((s, si) => doc.text(`   - ${s}`));
+              }
+            });
+          }
+
+          doc.addPage();
+          doc.fontSize(12).text('Mood Log (last entries):', { underline: true });
+          (moods || []).slice(-20).forEach(m => {
+            doc.moveDown(0.1);
+            doc.fontSize(10).text(`${new Date(m.createdAt).toLocaleString()} • ${m.mood} • ${m.notes || ''}`);
+          });
+
+          doc.addPage();
+          doc.fontSize(12).text('Chat excerpts:', { underline: true });
+          (history || []).slice(-50).forEach(h => {
+            doc.moveDown(0.1);
+            doc.fontSize(10).text(`User: ${h.userMessage}`);
+            if (h.botReply) doc.fontSize(10).text(`Bot: ${h.botReply}`);
+          });
+
+          doc.end();
+          await new Promise((resolve) => doc.on('end', resolve));
+          pdfBuffer = Buffer.concat(chunks);
+        } catch (e) {
+          console.warn('PDF generation failed:', e.message);
+          pdfBuffer = null;
+        }
+      }
+
+      // Save plan in DB (no PII)
+      const plan = await HealthPlan.create({ userId, guide, pdf: pdfBuffer || undefined, pdfMime: pdfBuffer ? 'application/pdf' : undefined });
+
+      // Return plan id and guide summary
+      res.json({ ok: true, planId: plan._id, guide });
+    } catch (err) {
+      console.error('generate-weekly-plan error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
 
 module.exports = router;

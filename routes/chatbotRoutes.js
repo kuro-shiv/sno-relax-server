@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const fetch = require("node-fetch");
 const ChatHistory = require("../models/ChatHistory");
+const TrainingEntry = require('../models/TrainingEntry');
 const User = require("../models/User");
 
 const HF_API_KEY = process.env.HF_API_KEY;
@@ -157,6 +158,70 @@ SnoBot:`;
   return response || "I'm here to listen. How are you feeling today? 🌱";
 }
 
+// ---------------- Mood Analysis + Habit Suggestions (Cohere) ----------------
+async function callCohereAnalyzeMood(userText) {
+  if (!COHERE_API_KEY) return null;
+
+  // Ask Cohere to return a small JSON with mood label and 3 habit suggestions
+  const moodPrompt = `You are a compassionate mental health assistant. Analyze the user's short message and return a JSON object with two fields:
+1) "mood": a single-word mood label (one of: happy, sad, anxious, stressed, neutral, angry, tired, depressed, hopeful) that best summarizes the user's current emotional state.
+2) "habits": an array of up to 3 habit suggestion objects. Each habit suggestion should have "title" (short phrase) and "description" (one sentence practical tip). Keep descriptions concise.
+
+Input message:
+"""
+${userText}
+"""
+
+Return ONLY valid JSON. Example:
+{"mood":"anxious","habits":[{"title":"Short breathing breaks","description":"Take 3 deep breaths every hour to ground yourself."},{"title":"Move for 5 minutes","description":"Stand up and walk or stretch for 5 minutes to reduce tension."}]}
+`;
+
+  try {
+    const url = 'https://api.cohere.ai/v1/generate';
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${COHERE_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'xlarge',
+        prompt: moodPrompt,
+        max_tokens: 180,
+        temperature: 0.4,
+        stop_sequences: ["\n\n"],
+      }),
+    });
+
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '');
+      console.warn('Cohere mood analysis failed:', res.status, txt);
+      return null;
+    }
+
+    const data = await res.json();
+    let text = data?.generations?.[0]?.text || '';
+    text = text.trim();
+
+    // Try to extract the JSON from the model output
+    const jsonStart = text.indexOf('{');
+    if (jsonStart >= 0) text = text.slice(jsonStart);
+    try {
+      const parsed = JSON.parse(text);
+      // Basic validation
+      if (parsed && (parsed.mood || parsed.habits)) return parsed;
+    } catch (e) {
+      console.warn('Failed to parse Cohere mood JSON:', e.message);
+      return null;
+    }
+  } catch (err) {
+    console.warn('Error calling Cohere mood analysis:', err.message);
+    return null;
+  }
+
+  return null;
+}
+
 // ---------------- GOOGLE FREE TRANSLATE ----------------
 
 // Detect language (safe with fallback)
@@ -235,24 +300,32 @@ router.post("/", async (req, res) => {
     if (prompt.length) prompt += "\n";
     prompt += `User: ${translatedText}\nBot:`;
 
-    // -------- Bot Logic (Priority: Cohere > Python > HuggingFace) ----------
+    // -------- Bot Logic (Priority: Cohere with timeout -> Python -> HuggingFace) ----------
     let botReply = "";
     let source = "none";
 
-    // 1. Try Cohere FIRST (primary)
+    // 1. Try Cohere FIRST, but don't block indefinitely — use a short timeout and fallback
     if (COHERE_API_KEY) {
       try {
-        console.log("📡 Using Cohere API (SnoBot)...");
-        botReply = await callCohereGenerate(translatedText);
-        source = "cohere";
-        console.log(`✅ Got Cohere response: ${botReply.substring(0, 50)}...`);
+        console.log("📡 Attempting Cohere (SnoBot) with timeout...");
+        const coherePromise = callCohereGenerate(translatedText);
+        const timeoutMs = 8000; // 8s timeout for primary Cohere attempt
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Cohere timeout')), timeoutMs));
+        try {
+          botReply = await Promise.race([coherePromise, timeoutPromise]);
+          source = 'cohere';
+          console.log(`✅ Got Cohere response: ${String(botReply).substring(0,50)}...`);
+        } catch (err) {
+          console.warn('Cohere primary attempt failed or timed out:', err.message);
+          botReply = '';
+        }
       } catch (err) {
-        console.error("Cohere error:", err.message);
-        botReply = "";
+        console.error('Cohere error:', err.message);
+        botReply = '';
       }
     }
 
-    // 2. Try Python bot if Cohere fails
+    // 2. Try Python bot if Cohere did not produce a timely reply
     if (!botReply) {
       try {
         const pyReply = tryPythonChatbot(translatedText);
@@ -309,7 +382,7 @@ router.post("/", async (req, res) => {
       console.error("Failed to store chat history:", err);
     }
 
-    // -------- Save Training File ----------
+    // -------- Save Training File (background, non-blocking) --------
     try {
       saveTrainingEntry({
         userId,
@@ -321,6 +394,15 @@ router.post("/", async (req, res) => {
       });
     } catch (e) {}
 
+    // -------- Mood analysis & habit suggestions (best-effort) --------
+    let moodAnalysis = null;
+    try {
+      // Use user's original message (not translated) for mood analysis when possible
+      moodAnalysis = await callCohereAnalyzeMood(message);
+    } catch (e) {
+      console.warn('Mood analysis failed:', e.message);
+    }
+
     // -------- Translate Bot Reply Back --------
     let finalReply = botReply;
     if (sourceLang !== "en") {
@@ -331,7 +413,11 @@ router.post("/", async (req, res) => {
       }
     }
 
-    res.json({ sender: "bot", text: finalReply, role: userRole });
+    // Return moodAnalysis if available
+    const resp = { sender: "bot", text: finalReply, role: userRole };
+    if (moodAnalysis) resp.moodAnalysis = moodAnalysis;
+
+    res.json(resp);
 
   } catch (err) {
     console.error("Chat error:", err);

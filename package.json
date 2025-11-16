@@ -17,12 +17,13 @@
     "express": "^4.21.2",
     "googleapis": "^159.0.0",
     "mongoose": "^8.18.1",
+    "pdfkit": "^0.17.2",
     "socket.io": "^4.8.1"
   },
   "devDependencies": {
     "eslint": "^8.46.0",
-    "nodemon": "^3.1.10",
-    "mongodb-memory-server": "^8.14.0"
+    "mongodb-memory-server": "^8.14.0",
+    "nodemon": "^3.1.10"
   },
   "engines": {
     "node": ">=18.0.0"
