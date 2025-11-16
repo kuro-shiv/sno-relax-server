@@ -4,6 +4,7 @@ const ChatHistory = require('../models/ChatHistory');
 const Mood = require('../models/Mood');
 const User = require('../models/User');
 const HealthPlan = require('../models/HealthPlan');
+const TrainingEntry = require('../models/TrainingEntry');
 const fetch = require('node-fetch');
 
 let PDFDocument;
@@ -213,5 +214,67 @@ router.post('/guide', async (req, res) => {
       res.status(500).json({ error: err.message });
     }
   });
+
+// Endpoint to retrieve training data for AI learning/analysis
+// This endpoint is used by the AI health assistant to learn from past interactions
+router.get('/training-data/:userId', async (req, res) => {
+  const { userId } = req.params;
+  const { limit = 100, days = 30 } = req.query;
+
+  if (!userId) return res.status(400).json({ error: 'userId required' });
+
+  try {
+    // Get training entries from the last N days
+    const since = new Date(Date.now() - Number(days) * 24 * 60 * 60 * 1000);
+    const entries = await TrainingEntry.find({
+      userId,
+      createdAt: { $gte: since }
+    }).sort({ createdAt: -1 }).limit(Number(limit));
+
+    // Also include mood data for context
+    const moods = await Mood.find({
+      userId,
+      createdAt: { $gte: since }
+    }).sort({ createdAt: -1 }).limit(50);
+
+    res.json({
+      ok: true,
+      trainingEntries: entries,
+      moodData: moods,
+      total: entries.length,
+      moodTotal: moods.length
+    });
+  } catch (err) {
+    console.error('training-data error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Endpoint to get stats on training data collection (for monitoring)
+router.get('/training-stats/:userId', async (req, res) => {
+  const { userId } = req.params;
+
+  if (!userId) return res.status(400).json({ error: 'userId required' });
+
+  try {
+    const total = await TrainingEntry.countDocuments({ userId });
+    const cohere = await TrainingEntry.countDocuments({ userId, source: 'cohere' });
+    const python = await TrainingEntry.countDocuments({ userId, source: 'python' });
+    const huggingface = await TrainingEntry.countDocuments({ userId, source: 'huggingface' });
+    const unprocessed = await TrainingEntry.countDocuments({ userId, processed: false });
+
+    res.json({
+      ok: true,
+      stats: {
+        total,
+        bySource: { cohere, python, huggingface },
+        unprocessed
+      }
+    });
+  } catch (err) {
+    console.error('training-stats error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 module.exports = router;

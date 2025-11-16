@@ -408,16 +408,34 @@ router.post("/", async (req, res) => {
     }
 
     // -------- Save Training File (background, non-blocking) --------
+    // Save to both file (for backup) and DB (for AI health assistant training)
     try {
-      saveTrainingEntry({
+      const trainingData = {
         userId,
         userMessage: message,
         botReply,
         language: sourceLang,
         source,
         timestamp: new Date().toISOString()
-      });
-    } catch (e) {}
+      };
+      
+      // Save to file (non-blocking)
+      saveTrainingEntry(trainingData);
+      
+      // Also save to DB asynchronously (non-blocking) for future training
+      try {
+        TrainingEntry.create({
+          userId,
+          userMessage: message,
+          botReply,
+          language: sourceLang,
+          source,
+          processed: false
+        }).catch(err => console.warn('Failed to save training entry to DB:', err.message));
+      } catch (e) {}
+    } catch (e) {
+      console.warn('Training save error:', e.message);
+    }
 
     // -------- Mood analysis & habit suggestions (best-effort) --------
     let moodAnalysis = null;
